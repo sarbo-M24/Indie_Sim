@@ -21,5 +21,8 @@ public class CigData : ScriptableObject
     [Tooltip("Coin cost to buy this cig from the shop.")]
     public int cost;
 
+    [Tooltip("Seconds a burned instance's maxed effect lasts once gameplay resumes, before it's removed. Placeholder value — balancing is not part of this pass.")]
+    public float burnDurationSeconds = 20f;
+
     public CigEffectId effectId;
 }

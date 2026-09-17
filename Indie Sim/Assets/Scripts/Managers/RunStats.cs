@@ -22,10 +22,9 @@ public class RunStats
     public bool[] RelicsHeld = new bool[8];
     public int UniqueRelicsCollectedThisRun;
 
-    // Upgrades (Pack)
+    // Upgrades (Pack, CigPool)
     public List<CigInstance> HeldCigs = new List<CigInstance>();   // max 5
     public List<string> PurchasedCigIds = new List<string>();      // removed from pool for the run
-    public List<string> PendingBurnRemovalIds = new List<string>();
 
     // Weapon loadout + ammo (WeaponInventory, WeaponAmmoManager). WeaponData
     // is a ScriptableObject asset — stable reference across scene loads, safe

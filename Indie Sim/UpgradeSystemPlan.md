@@ -7,7 +7,7 @@
 
 ## Context
 
-`DemoBeforeIGDC.md` puts a playable demo on Steam before **Oct 28, 2026**, with **Oct 16 as the last working engine day** (Mumbai trip after). The Upgrade System replaces Phase 7 of the architecture refactor in the active work sequence — Phase 7 is deferred post-demo. `UpgradeSystemSpec.md` is the design: a 5-slot "pack" of cigarette upgrades, bought instantly-active from a post-level shop, freed only by "burning" (max tier for one level, then gone).
+`DemoBeforeIGDC.md` puts a playable demo on Steam before **Oct 28, 2026**, with **Oct 16 as the last working engine day** (Mumbai trip after). The Upgrade System replaces Phase 7 of the architecture refactor in the active work sequence — Phase 7 is deferred post-demo. `UpgradeSystemSpec.md` is the design: a 5-slot "pack" of cigarette upgrades, bought instantly-active from a post-level shop, freed only by "burning" (max tier for a fixed real-time duration once gameplay resumes, then gone — see the "Revised" note under Burning in the spec).
 
 This plan covers the Upgrade System only, Steps 0–5.
 
@@ -114,7 +114,7 @@ The spec puts the level-boundary signal at Step 5, but Step 2's acceptance crite
 - `CigEffectRegistry.cs` — `CigEffectId` → `IUpgradeEffect`.
 - `LevelBoundary.cs` — `public static event Action OnLevelEnded;` + `RaiseLevelEnded()`.
 
-**Wire the signal.** `RoguelikeManager.CompleteDungeon()` (`:253`) is the single chokepoint — reached from `Teleporter.LoadNextDungeon()` (`Teleporter.cs:171`) and `DEBUG_SkipDungeon()` (`:343`). Raise `LevelBoundary.OnLevelEnded` **before the boss branch at `:274`**, so it fires on the boss path too, not just the shop path. Sequence per level is then: clear → signal (removes cigs burned in the previous shop) → shop opens → player burns → next level.
+**Wire the signal.** `RoguelikeManager.CompleteDungeon()` (`:253`) is the single chokepoint — reached from `Teleporter.LoadNextDungeon()` (`Teleporter.cs:171`) and `DEBUG_SkipDungeon()` (`:343`). Raise `LevelBoundary.OnLevelEnded` **before the boss branch at `:274`**, so it fires on the boss path too, not just the shop path. Sequence per level is then: clear → signal (removes any still-burning cigs — no carryover, even if their timer hasn't run out) → shop opens → player burns → next level, where the burn timer starts ticking.
 
 > **Static event + scene-local subscriber is the exact leak pattern** `architecture-refactor-plan-v3.md:287` warns about. `BurnResolver` must unsubscribe in `OnDisable`. Audit this specifically.
 
@@ -126,11 +126,11 @@ The spec puts the level-boundary signal at Step 5, but Step 2's acceptance crite
 
 - **`Pack`** — scene-local singleton (`Instance`, no `DontDestroyOnLoad`), consistent with every other manager post-Phase-6. `Start()` rehydrates `HeldCigs` from `GameSession.CurrentRun` and calls `Recompute()`; every mutation writes back, mirroring `CoinManager`'s pattern (`CoinManager.cs:65–97`). Enforces replace-in-place: buying a higher tier/rarity of a lineage already held **replaces it in the same slot** (`UpgradeSystemSpec.md:48`). Blocks buying at 5/5.
 - **`CigPool`** — holds the `CigData[]` catalog, filters out `PurchasedCigIds`, rolls tier/rarity for each offer. Reuse `StoreManager`'s `Shuffle<T>()` (`StoreManager.cs:213`) — it is the only thing in that class worth keeping; lift it into a small static helper before deleting the file in Step 0.
-- **`BurnResolver`** — `Burn(CigInstance)` sets `IsBurning`, adds the id to `PendingBurnRemovalIds`, recomputes. On `LevelBoundary.OnLevelEnded`, removes every pending instance from the pack and recomputes.
+- **`BurnResolver`** — `Burn(CigInstance)` sets `IsBurning` and starts its `BurnTimeRemaining` countdown (from `CigData.burnDurationSeconds`), recomputes. Ticks every burning instance's timer down in `Update()`, but only while `RoguelikeManager.GameplayInputEnabled` is true (the timer doesn't run while the shop is open, since the shop pauses via input-disable, not `timeScale`). Removes an instance the moment its timer hits zero. Also removes every still-burning instance on `LevelBoundary.OnLevelEnded`, so a level clearing early never lets a burn carry into the next level. (Superseded the original plan's `PendingBurnRemovalIds` list on `RunStats` — `CigInstance.IsBurning` already persists through `RunStats.HeldCigs`, so a second ID list was redundant and has been removed.)
 
 **Point the stat consumers at `Pack.Instance.Stats`**, reverting Step 0's temporary base-value returns. Keep the existing null-guard style — every call site already guards, and that is what makes the system degrade safely if `Pack` is missing from a scene.
 
-**Acceptance:** buying to 5/5 blocks further purchases until something is burned; burning frees the slot; buying a higher tier of a held lineage replaces in place rather than taking a second slot; a burned cig resolves at tier 4 for exactly one level, then is gone.
+**Acceptance:** buying to 5/5 blocks further purchases until something is burned; burning frees the slot; buying a higher tier of a held lineage replaces in place rather than taking a second slot; a burned cig resolves at tier 4, its timer only ticking while gameplay is active, and is fully gone the instant either the timer expires or the level ends (whichever is first) — no carryover either way.
 
 ---
 
@@ -144,8 +144,9 @@ Follow the established convention: uGUI, `Screen Space - Overlay`, TextMeshPro, 
 - **Call `CursorController.Instance.SetCursorOverride(true)`** on open and `false` on close (`CursorController.cs:49`), as `DemoCompleteScreen.cs:45` does — otherwise the cursor is invisible over the shop.
 - **Continue is code, not a UnityEvent.** The old Continue button called `RoguelikeManager.ContinueDungeon()` via an Inspector UnityEvent on the prefab (`Player Canvas HardcoreMode.prefab:5226`), which is invisible to grep and silently null-targets in BossArena. `ShopUIController` calls `RoguelikeManager.Instance?.ContinueDungeon()` directly instead.
 - Replace `RoguelikeManager.cs:281–284`'s `storeManager.OpenStore()` with `ShopUIController.Instance.Open()`.
+- **New scope, added after Step 2:** a small **Burning Cigs HUD** — one fill bar per currently-burning cig, live during actual dungeon gameplay (not shown while the shop is open). Bind it to `Pack.Instance.HeldCigs`, filtering to `IsBurning`, reading `CigInstance.BurnFraction` (0-1, already exposed) for the fill amount. This is a HUD element on `Player Canvas HardcoreMode.prefab`, separate from the Buy/Burn shop panel itself.
 
-**Acceptance:** full loop playable — clear a level → shop opens → buy and/or burn → effect visible next level → repeat to death or boss.
+**Acceptance:** full loop playable — clear a level → shop opens → buy and/or burn → effect visible next level, with its HUD bar counting down only while playing → repeat to death or boss.
 
 ---
 
@@ -200,7 +201,7 @@ Per `UpgradeSystemSpec.md:9`, Claude Code only writes C#. These are handed off a
 2. **Play directly in `RoguelikeMode` and in `BossArena`** — both must produce a playable scene. This is the Phase 6 acceptance bar and the new managers must not break it.
 3. **Buy loop:** clear a level → shop → buy → confirm the effect is live *that same level*, not next. Fill to 5/5 → confirm further purchases are blocked.
 4. **Replace-in-place:** buy a lineage, then buy a higher tier of the same lineage → confirm it occupies the same slot and the pack count does not grow.
-5. **Burn loop:** burn a cig → confirm it resolves at tier 4 for exactly one level → clear that level → confirm it is gone from the pack and `PackStats` is back to baseline, not to its pre-burn value.
+5. **Burn loop:** burn a cig → confirm it resolves at tier 4 and its HUD fill bar counts down only while playing (frozen if the shop reopens) → confirm it's removed the instant the timer hits zero, or immediately on level-clear if that happens first → confirm `PackStats` is back to baseline afterward, not to its pre-burn value.
 6. **Scene boundary:** buy cigs in `RoguelikeMode`, advance to boss, confirm the pack and every effect survive into `BossArena` (the list is in `GameSession.CurrentRun`; `Pack` rehydrates in `Start()`).
 7. **Run boundary:** die → Retry → confirm the pack is empty, the offer pool is full again, and coins are 0. `GameSession.StartNewRun()` constructs a fresh `RunStats`, so this should be correct by construction — verify it explicitly rather than assuming.
 8. **Leak audit:** confirm `BurnResolver` unsubscribes from `LevelBoundary.OnLevelEnded` in `OnDisable`. Enter and leave `RoguelikeMode` several times, then clear a level and confirm the handler fires exactly once.

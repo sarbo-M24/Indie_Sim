@@ -359,12 +359,17 @@ public class RoguelikeManager : MonoBehaviour
         DEBUG_PrintStats();
     }
 
+    /// <summary>True whenever the player has control — false while the shop is open. Burn timers gate on this.</summary>
+    public bool GameplayInputEnabled { get; private set; } = true;
+
     /// <summary>
     /// Single flag movement/shooting/dash/stomp all respect. Routed through
     /// by the upgrade menu's open/close instead of scattered per-script flags.
     /// </summary>
     public void SetGameplayInputEnabled(bool enabled)
     {
+        GameplayInputEnabled = enabled;
+
         if (playerTransform == null) return;
 
         PlayerController pc = playerTransform.GetComponent<PlayerController>();

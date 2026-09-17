@@ -35,8 +35,9 @@ This is the build spec for the Upgrade System. It supersedes the earlier "burn t
 - Burn tab shows the cigs currently held in the pack.
 - The player can burn any number of them, in any combination, any time the shop is open — not gated behind needing space. Burning is a deliberate choice, not just a forced fallback.
 - Burning an active upgrade does two things:
-  1. For the **next level only**, that upgrade's effect is computed at **max Tier** — whatever Rarity was actually bought stays as-is; only Tier gets maxed.
-  2. After that level ends, the upgrade is **fully removed** from the pack — not reverted to its pre-burn state, just gone. The slot is now free.
+  1. The upgrade's effect is computed at **max Tier** — whatever Rarity was actually bought stays as-is; only Tier gets maxed.
+  2. It stays maxed for a **fixed real-time duration** (`burnDurationSeconds`, authored per lineage on `CigData` — not per tier/rarity), counted down only while the player actually has control (not while the shop is open). A HUD fill bar per burning cig shows this countdown once gameplay resumes.
+- **Revised from an earlier "lasts exactly one level" design:** the cig is fully removed — not reverted, just gone, freeing the slot — the instant *either* its timer reaches zero *or* the level ends, whichever comes first. A level clearing early does not let the burn carry into the next level, and a burn timer running out mid-level removes the effect immediately without waiting for the level to end.
 - This is the only mechanism that frees a pack slot. There's no other discard action.
 
 ---
@@ -61,6 +62,7 @@ Each of the catalog's base upgrades (assault rifle crit, stomp-seeks, dash-AoE, 
 - `tier` — int 1–4, only meaningful if `hasTierRarity`
 - `rarity` — enum Common / Uncommon / Rare / Epic, only meaningful if `hasTierRarity`
 - `baseDamage`, `upgradedDamage`, `rarityBonus` — numeric fields feeding the formula below (values are design/balancing work, not filled in here)
+- `burnDurationSeconds` — how long a burn lasts once gameplay resumes, in real seconds. Fixed per lineage, independent of the rolled Tier/Rarity.
 - `effect` — reference to an `IUpgradeEffect`
 
 ### `IUpgradeEffect` interface
