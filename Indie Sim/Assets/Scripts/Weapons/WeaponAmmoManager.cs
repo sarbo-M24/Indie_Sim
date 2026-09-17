@@ -282,9 +282,7 @@ public class WeaponAmmoManager : MonoBehaviour
         // ✅ Instantly refill ALL weapons to max on switch
         foreach (WeaponData weapon in new List<WeaponData>(_currentAmmo.Keys))
         {
-            int max = UpgradeManager.Instance != null
-                ? UpgradeManager.Instance.GetFinalAmmo(weapon)
-                : weapon.magazineCapacity;
+            int max = weapon.magazineCapacity;
             _currentAmmo[weapon] = max;
             SyncAmmoToRunStats(weapon);
         }
@@ -305,9 +303,7 @@ public class WeaponAmmoManager : MonoBehaviour
     {
         if (weapon == null) return;
 
-        int newMax = UpgradeManager.Instance != null
-            ? UpgradeManager.Instance.GetFinalAmmo(weapon)
-            : weapon.magazineCapacity;
+        int newMax = weapon.magazineCapacity;
 
         _currentAmmo[weapon] = newMax;
         SyncAmmoToRunStats(weapon);
@@ -347,18 +343,13 @@ public class WeaponAmmoManager : MonoBehaviour
         foreach (WeaponData weapon in weapons)
         {
             if (weapon == null) continue;
-            int max = UpgradeManager.Instance != null
-                ? UpgradeManager.Instance.GetFinalAmmo(weapon)
-                : weapon.magazineCapacity;
-            _currentAmmo[weapon] = max;
+            _currentAmmo[weapon] = weapon.magazineCapacity;
         }
     }
 
     private int GetCurrentMaxAmmo()
     {
         if (currentWeapon == null) return 0;
-        if (UpgradeManager.Instance != null)
-            return UpgradeManager.Instance.GetFinalAmmo(currentWeapon);
         return currentWeapon.magazineCapacity;
     }
 

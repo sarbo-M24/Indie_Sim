@@ -8,9 +8,6 @@ public class RoguelikeManager : MonoBehaviour
 {
     public static RoguelikeManager Instance;
 
-    [Header("Store Reference")]
-    public StoreManager storeManager;
-
     [SerializeField] private DungeonMapGenerator dungeonGenerator;
     [SerializeField] private Transform playerTransform;
     [SerializeField] private Teleporter teleporter;
@@ -86,7 +83,6 @@ public class RoguelikeManager : MonoBehaviour
         }
         else
         {
-            // ✅ Re-grab storeManager for any other roguelike scene reload
             StartCoroutine(ReinitialiseReferences());
         }
     }
@@ -96,14 +92,12 @@ public class RoguelikeManager : MonoBehaviour
     {
         yield return null; // wait one frame for scene to finish loading
 
-        storeManager = FindFirstObjectByType<StoreManager>();
         dungeonGenerator = FindFirstObjectByType<DungeonMapGenerator>();
         playerTransform = FindFirstObjectByType<PlayerController>()?.transform;
         weaponInventory = FindFirstObjectByType<WeaponInventory>();
         AmmoManager = FindFirstObjectByType<WeaponAmmoManager>();
 
-        Debug.Log($"[RoguelikeManager] References re-grabbed — storeManager: {storeManager}");
-        Debug.Log($"[RoguelikeManager] dungeonGenerator: {dungeonGenerator}");
+        Debug.Log($"[RoguelikeManager] References re-grabbed — dungeonGenerator: {dungeonGenerator}");
         Debug.Log($"[RoguelikeManager] playerTransform: {playerTransform}");
 
         if (AmmoManager != null && weaponInventory != null)
@@ -116,14 +110,12 @@ public class RoguelikeManager : MonoBehaviour
 
         dungeonGenerator = FindFirstObjectByType<DungeonMapGenerator>();
         teleporter = FindFirstObjectByType<Teleporter>();
-        storeManager = FindFirstObjectByType<StoreManager>();
         playerTransform = FindFirstObjectByType<PlayerController>()?.transform;
         weaponInventory = FindFirstObjectByType<WeaponInventory>();
         AmmoManager = FindFirstObjectByType<WeaponAmmoManager>();
 
         Debug.Log($"[RoguelikeManager] dungeonGenerator: {dungeonGenerator}");
         Debug.Log($"[RoguelikeManager] teleporter: {teleporter}");
-        Debug.Log($"[RoguelikeManager] storeManager: {storeManager}");
         Debug.Log($"[RoguelikeManager] playerTransform: {playerTransform}");
 
         if (dungeonGenerator == null)
@@ -264,12 +256,16 @@ public class RoguelikeManager : MonoBehaviour
             GameSession.Instance.CurrentRun.DungeonsClearedThisRun = dungeonsClearedCount;
 
         Debug.Log($"[RoguelikeManager] dungeonsClearedCount: {dungeonsClearedCount} / {roomsTillBoss}");
-        Debug.Log($"[RoguelikeManager] storeManager is: {storeManager}");
-        UpgradeManager.Instance.AdvanceDungeonLevel();
+        if (GameSession.Instance != null)
+            GameSession.Instance.CurrentRun.CurrentDungeonLevel++;
 
         Debug.Log($"[RoguelikeManager] Dungeon #{dungeonsClearedCount} completed!");
 
         ClearCurrentDungeon();
+
+        // Removes anything burned during the shop that just ended, on both
+        // the shop path and the boss path.
+        LevelBoundary.RaiseLevelEnded();
 
         if (dungeonsClearedCount >= roomsTillBoss)
         {
@@ -278,10 +274,7 @@ public class RoguelikeManager : MonoBehaviour
             return;
         }
 
-        if (storeManager != null)
-            storeManager.OpenStore();
-        else
-            Debug.LogError("[RoguelikeManager] StoreManager not assigned!");
+        // TODO(UpgradeSystem Step 3): open ShopUIController here instead.
     }
 
     private void LoadBossLevel()

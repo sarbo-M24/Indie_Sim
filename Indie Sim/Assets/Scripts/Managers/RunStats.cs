@@ -22,21 +22,10 @@ public class RunStats
     public bool[] RelicsHeld = new bool[8];
     public int UniqueRelicsCollectedThisRun;
 
-    // Upgrades (UpgradeManager)
-    public List<string> AppliedUpgradeIds = new List<string>();
-    public int BonusPistolDamage;
-    public int BonusPistolAmmo;
-    public int BonusShotgunDamage;
-    public int BonusShotgunAmmo;
-    public int BonusMachineGunDamage;
-    public int BonusMachineGunAmmo;
-    public float BonusSpeed;
-    public float BonusStompRadius;
-    public int BonusStompDamage;
-    public int BonusCoinCapacity;
-
-    // Weapons (WeaponUnlockManager)
-    public List<string> UnlockedWeaponNames = new List<string>();
+    // Upgrades (Pack)
+    public List<CigInstance> HeldCigs = new List<CigInstance>();   // max 5
+    public List<string> PurchasedCigIds = new List<string>();      // removed from pool for the run
+    public List<string> PendingBurnRemovalIds = new List<string>();
 
     // Weapon loadout + ammo (WeaponInventory, WeaponAmmoManager). WeaponData
     // is a ScriptableObject asset — stable reference across scene loads, safe
@@ -44,7 +33,7 @@ public class RunStats
     public WeaponData EquippedWeapon;
     public Dictionary<WeaponData, int> WeaponAmmo = new Dictionary<WeaponData, int>();
 
-    // Dungeon progression (UpgradeManager.CurrentDungeonLevel, RoguelikeManager.dungeonsClearedCount)
+    // Dungeon progression (RoguelikeManager.dungeonsClearedCount)
     public int CurrentDungeonLevel = 1;
     public int DungeonsClearedThisRun;
 

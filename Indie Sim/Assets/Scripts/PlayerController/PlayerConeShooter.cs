@@ -269,12 +269,7 @@ public class PlayerConeShooter : MonoBehaviour
     /// </summary>
     private int GetDynamicWeaponDamage()
     {
-        // Failsafe: if UpgradeManager isn't in the scene, use the raw base stat
-        if (UpgradeManager.Instance == null)
-            return currentWeapon.baseDamagePerShot; // Note: was damagePerShot, now baseDamagePerShot
-
-        // GetFinalDamage() figures out pistol/shotgun/machinegun internally — no switch needed here
-        return UpgradeManager.Instance.GetFinalDamage(currentWeapon);
+        return currentWeapon.baseDamagePerShot;
     }
 
     /// <summary>
@@ -282,10 +277,7 @@ public class PlayerConeShooter : MonoBehaviour
     /// </summary>
     private int GetDynamicPierceCount()
     {
-        if (UpgradeManager.Instance == null)
-            return currentWeapon.maxPierceCount;
-
-        return UpgradeManager.Instance.GetFinalPierceCount(currentWeapon);
+        return currentWeapon.maxPierceCount;
     }
     /// <summary>
     /// Creates visual bullet trails and applies damage based on weapon type.

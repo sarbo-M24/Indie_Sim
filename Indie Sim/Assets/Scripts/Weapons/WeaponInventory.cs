@@ -88,8 +88,8 @@ public class WeaponInventory : MonoBehaviour
     #region Initialization
 
     /// <summary>
-    /// Equips the first unlocked weapon at game start.
-    /// If no weapons are unlocked, logs a warning.
+    /// Equips the carried-over weapon if there is one, else the first weapon
+    /// in the loadout.
     /// </summary>
     private void InitializeStartingWeapon()
     {
@@ -100,9 +100,9 @@ public class WeaponInventory : MonoBehaviour
         }
 
         // Scene-local (Phase 6) — resume the weapon equipped when this run's
-        // previous scene instance was destroyed, if it's still unlocked.
+        // previous scene instance was destroyed.
         WeaponData carriedOver = GameSession.Instance != null ? GameSession.Instance.CurrentRun.EquippedWeapon : null;
-        if (carriedOver != null && WeaponUnlockManager.Instance.IsWeaponUnlocked(carriedOver))
+        if (carriedOver != null)
         {
             int carriedIndex = System.Array.IndexOf(availableWeapons, carriedOver);
             if (carriedIndex != -1)
@@ -112,25 +112,7 @@ public class WeaponInventory : MonoBehaviour
             }
         }
 
-        // Find first unlocked weapon
-        int firstUnlockedIndex = -1;
-        for (int i = 0; i < availableWeapons.Length; i++)
-        {
-            if (WeaponUnlockManager.Instance.IsWeaponUnlocked(availableWeapons[i]))
-            {
-                firstUnlockedIndex = i;
-                break;
-            }
-        }
-
-        if (firstUnlockedIndex != -1)
-        {
-            SwitchToWeapon(firstUnlockedIndex);
-        }
-        else
-        {
-            Debug.LogWarning("[WeaponInventory] No weapons unlocked! Player cannot shoot until a weapon is unlocked.");
-        }
+        SwitchToWeapon(0);
     }
 
     #endregion
@@ -139,7 +121,6 @@ public class WeaponInventory : MonoBehaviour
 
     /// <summary>
     /// Switches to a specific weapon by index.
-    /// Checks if the weapon is unlocked before switching.
     /// </summary>
     /// <param name="weaponIndex">Index in the availableWeapons array</param>
     public void SwitchToWeapon(int weaponIndex)
@@ -152,13 +133,6 @@ public class WeaponInventory : MonoBehaviour
         }
 
         WeaponData targetWeapon = availableWeapons[weaponIndex];
-
-        // Check if weapon is unlocked
-        if (!WeaponUnlockManager.Instance.IsWeaponUnlocked(targetWeapon))
-        {
-            Debug.LogWarning($"[WeaponInventory] Cannot switch to {targetWeapon.weaponName} - weapon is LOCKED!");
-            return;
-        }
 
         // Switch to the weapon
         currentWeaponIndex = weaponIndex;
@@ -174,53 +148,27 @@ public class WeaponInventory : MonoBehaviour
     }
 
     /// <summary>
-    /// Switches to the next unlocked weapon in the loadout (cycles forward).
+    /// Switches to the next weapon in the loadout (cycles forward).
     /// Useful for Tab key or scroll up.
     /// </summary>
     public void SwitchToNextWeapon()
     {
         if (availableWeapons.Length == 0) return;
 
-        int startIndex = currentWeaponIndex;
         int nextIndex = (currentWeaponIndex + 1) % availableWeapons.Length;
-
-        // Keep cycling until we find an unlocked weapon or loop back to start
-        while (nextIndex != startIndex)
-        {
-            if (WeaponUnlockManager.Instance.IsWeaponUnlocked(availableWeapons[nextIndex]))
-            {
-                SwitchToWeapon(nextIndex);
-                return;
-            }
-            nextIndex = (nextIndex + 1) % availableWeapons.Length;
-        }
-
-        Debug.LogWarning("[WeaponInventory] No other unlocked weapons available!");
+        SwitchToWeapon(nextIndex);
     }
 
     /// <summary>
-    /// Switches to the previous unlocked weapon in the loadout (cycles backward).
+    /// Switches to the previous weapon in the loadout (cycles backward).
     /// Useful for scroll down.
     /// </summary>
     public void SwitchToPreviousWeapon()
     {
         if (availableWeapons.Length == 0) return;
 
-        int startIndex = currentWeaponIndex;
         int prevIndex = (currentWeaponIndex - 1 + availableWeapons.Length) % availableWeapons.Length;
-
-        // Keep cycling until we find an unlocked weapon or loop back to start
-        while (prevIndex != startIndex)
-        {
-            if (WeaponUnlockManager.Instance.IsWeaponUnlocked(availableWeapons[prevIndex]))
-            {
-                SwitchToWeapon(prevIndex);
-                return;
-            }
-            prevIndex = (prevIndex - 1 + availableWeapons.Length) % availableWeapons.Length;
-        }
-
-        Debug.LogWarning("[WeaponInventory] No other unlocked weapons available!");
+        SwitchToWeapon(prevIndex);
     }
 
     #endregion
@@ -269,9 +217,7 @@ public class WeaponInventory : MonoBehaviour
         if (weapon == null) return 0;
 
         if (!_currentAmmo.ContainsKey(weapon))
-            _currentAmmo[weapon] = UpgradeManager.Instance != null
-                ? UpgradeManager.Instance.GetFinalAmmo(weapon)
-                : weapon.magazineCapacity;
+            _currentAmmo[weapon] = weapon.magazineCapacity;
 
         return _currentAmmo[weapon];
     }
@@ -291,10 +237,7 @@ public class WeaponInventory : MonoBehaviour
     public void RefillAmmo(WeaponData weapon)
     {
         if (weapon == null) return;
-        int maxAmmo = UpgradeManager.Instance != null
-            ? UpgradeManager.Instance.GetFinalAmmo(weapon)
-            : weapon.magazineCapacity;
-        _currentAmmo[weapon] = maxAmmo;
+        _currentAmmo[weapon] = weapon.magazineCapacity;
     }
 
     /// <summary>

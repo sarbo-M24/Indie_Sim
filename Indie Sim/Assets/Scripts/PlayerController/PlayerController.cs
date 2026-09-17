@@ -98,9 +98,8 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     public void RefreshSpeed()
     {
-        float bonus = (UpgradeManager.Instance != null) ? UpgradeManager.Instance.GetBonusSpeed() : 0f;
-        currentMoveSpeed = baseMoveSpeed + bonus;
-        Debug.Log($"[PlayerController] Speed refreshed: {baseMoveSpeed} base + {bonus} bonus = {currentMoveSpeed}");
+        currentMoveSpeed = baseMoveSpeed;
+        Debug.Log($"[PlayerController] Speed refreshed: {currentMoveSpeed}");
     }
 
     #region Dash System

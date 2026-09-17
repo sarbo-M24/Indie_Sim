@@ -84,15 +84,8 @@ public class PlayerStompController : MonoBehaviour
 
     private void PerformStomp()
     {
-        // Pull final values: base stat + any upgrade bonuses
         float finalRadius = stompRadius;
         int finalDamage = stompDamage;
-
-        if (UpgradeManager.Instance != null)
-        {
-            finalRadius += UpgradeManager.Instance.GetBonusStompRadius();
-            finalDamage += UpgradeManager.Instance.GetBonusStompDamage();
-        }
 
         Debug.Log($"STOMP! Radius: {finalRadius}, Damage: {finalDamage}");
 
@@ -223,8 +216,6 @@ public class PlayerStompController : MonoBehaviour
     private void OnDrawGizmosSelected()
     {
         float previewRadius = stompRadius;
-        if (UpgradeManager.Instance != null)
-            previewRadius += UpgradeManager.Instance.GetBonusStompRadius();
 
         Gizmos.color = canStomp ? Color.cyan : Color.gray;
         Gizmos.DrawWireSphere(transform.position, previewRadius);
