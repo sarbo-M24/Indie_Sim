@@ -274,7 +274,9 @@ public class RoguelikeManager : MonoBehaviour
             return;
         }
 
-        // TODO(UpgradeSystem Step 3): open ShopUIController here instead.
+        // TODO(UpgradeSystem Step 3): open ShopUIController here instead of
+        // continuing straight through — no shop exists yet.
+        ContinueDungeon();
     }
 
     private void LoadBossLevel()

@@ -300,7 +300,7 @@ MonoBehaviour:
     - {fileID: -3403618607734925224, guid: ef2c1a669a16dff4c8d6c7cf93efbda0, type: 3}
     - {fileID: -925313270890801652, guid: ef2c1a669a16dff4c8d6c7cf93efbda0, type: 3}
     - {fileID: 5098224686723668927, guid: ef2c1a669a16dff4c8d6c7cf93efbda0, type: 3}
-    shootFPS: 12
+    shootFPS: 8
   shooter: {fileID: 6900749776920343997}
   ammoManager: {fileID: 2920833874844402058}
 --- !u!1 &3570606101360302782
@@ -5627,7 +5627,6 @@ GameObject:
   - component: {fileID: 5360059026301571325}
   - component: {fileID: 6351791454143980084}
   - component: {fileID: 6482888848170968585}
-  - component: {fileID: 3378380655426888713}
   - component: {fileID: 7322266951050164843}
   - component: {fileID: 3999631372541677211}
   - component: {fileID: 3782965380875294803}
@@ -6261,24 +6260,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 56c3f4ef79cead346984d21b7544d9d8, type: 2}
   currentWeaponIndex: 1
   scrollThreshold: 0.1
---- !u!114 &3378380655426888713
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8485655876686838044}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 971f9af774356bc49a66eb5d1df85307, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WeaponUnlockManager
-  allWeaponsInGame:
-  - {fileID: 11400000, guid: 5827dbebab0bf6f4583880f757b6faaa, type: 2}
-  - {fileID: 11400000, guid: 56c3f4ef79cead346984d21b7544d9d8, type: 2}
-  unlockedWeaponNames: []
-  unlockAllWeaponsOnStart: 1
-  debugUnlockedWeapons: []
 --- !u!114 &7322266951050164843
 MonoBehaviour:
   m_ObjectHideFlags: 0

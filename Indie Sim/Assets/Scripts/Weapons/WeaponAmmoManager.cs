@@ -288,7 +288,11 @@ public class WeaponAmmoManager : MonoBehaviour
         }
 
         if (newWeapon != null)
+        {
+            if (!_currentAmmo.ContainsKey(newWeapon))
+                _currentAmmo[newWeapon] = newWeapon.magazineCapacity;
             currentAmmoInMagazine = _currentAmmo[newWeapon];
+        }
 
         Debug.Log($"[AmmoManager] Switched to {currentWeapon?.weaponName} - All weapons refilled. Ammo: {currentAmmoInMagazine}/{GetCurrentMaxAmmo()}");
         UpdateAmmoUI();
