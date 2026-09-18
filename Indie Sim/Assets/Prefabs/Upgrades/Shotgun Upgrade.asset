@@ -14,9 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CigData
   id: 102
   displayName: ShotGun Upgrade
-  lineageId: 100
+  description: upgrades DMG, Inc Crit
+  icon: {fileID: 21300000, guid: 9cbb01bfc336f0443adad0cda6a7de3f, type: 3}
+  lineageId: 2
   brand: 1
   targetSlot: 1
   hasTierRarity: 1
   cost: 10
+  burnDurationSeconds: 20
   effectId: 2

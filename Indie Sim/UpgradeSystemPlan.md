@@ -1,7 +1,14 @@
 # Upgrade System — Execution Plan
 
 **Companion to:** `UpgradeSystemSpec.md` (design) and `DemoBeforeIGDC.md` (schedule).
-**Status:** reviewed against the codebase, not yet started. No code written.
+**Status (2026-09-18):** Steps 0–2 implemented and committed (`712ab28`, `b9297b1`, `0817873`). Step 2's acceptance checklist was re-verified by reading the code (not by playtesting in-editor — see below). Two open gaps found need a decision before Step 3 starts:
+
+1. **"Replace a held lineage with a higher tier" is unreachable through the actual shop flow.** `Pack.TryAdd()` (`Assets/Scripts/Upgrades/Pack.cs:85`) implements replace-in-place correctly in isolation, but `CigPool` permanently removes a lineage's only `CigData` id from the offer pool the instant it's bought (`CigPool.cs:5–9`, `:46`), so that lineage can never be re-offered to trigger the replace branch. This contradicts `UpgradeSystemSpec.md`'s "Cig identity & replacement" section, which assumes a lineage can be bought again at a higher tier. **Needs a decision:** either the pool needs a re-offer mechanism for owned lineages, or that section of the spec is stale and the replace-in-place code path (and this acceptance criterion) should be dropped. Secondary, smaller issue in the same code path: the replace branch swaps the held instance without calling `Remove()`'s effect cleanup on the old one first — harmless today since only `NoOpEffect` is registered, but will silently skip cleanup once a stateful Step 4 effect exists.
+2. **`BossArena.unity` has no `Pack Manager` GameObject yet** — only `RoguelikeMode.unity` does (manual setup checklist item under Step 2, not yet done). Scene-boundary carry-over (Verification item 6) can't be exercised until it's added. Related: `BurnResolver.Update()`'s pause guard (`BurnResolver.cs:60`) only checks `RoguelikeManager.Instance`, which is null in `BossArena` — so once the Pack Manager is added there, burn timers will tick unconditionally with no way to pause them if that scene ever gets its own pause mechanism.
+
+No in-editor playtesting has happened yet against the Step 2 acceptance list (5/5 block, burn-and-free, timer-vs-level-end race, `PackStats` reverting to baseline) — the above was verified by code reading only.
+
+**Next up:** Step 3's code is written (see "After Step 3" under Manual setup below) — paused here for the manual Editor setup checklist, to resume in a later session. The two gaps above are still unresolved and worth a decision before the Step 4 catalog work starts.
 
 ---
 
@@ -189,7 +196,28 @@ Per `UpgradeSystemSpec.md:9`, Claude Code only writes C#. These are handed off a
 
 **After Step 2:** add a `Pack Manager` GameObject to `RoguelikeMode.unity` and `BossArena.unity`, carrying `Pack`, `CigPool`, and `BurnResolver`. Assign the catalog array on `CigPool`.
 
-**After Step 3:** build the Shop panel as a sibling of the old store panel inside `Player Canvas HardcoreMode.prefab` — that prefab is instanced in **both** gameplay scenes, so it exists everywhere automatically. Two tabs, a card list, a Continue button. Wire to `ShopUIController`.
+**After Step 3 (2026-09-18 — code written, setup not yet done, paused here until we resume):**
+
+Code already in place: `CigData.cs` has `description` (multiline) and `icon` (Sprite) fields now. `CigCardUI.cs` (new) is a dumb, reusable card component — `icon` Image, `rarityIcon` Image, a `Button`, an optional `selectedHighlight` GameObject, exposes `Populate()`/`SetEmpty()`/`SetSelected()`/`OnClicked`. `ShopUIController.cs` (new) owns both tabs, one shared Confirm button, one shared detail text field, coin display, and populates card slots from `CigPool`/`Pack`. `RoguelikeManager.cs:277`'s old TODO now calls `ShopUIController.Instance.Open()` if one exists in the scene, falling back to `ContinueDungeon()` otherwise (so the debug-skip flow still works before the UI is wired in).
+
+Interaction design locked in: Buy and Burn both use select-a-card → highlight → shared Confirm button (not one-click burn). Rarity is shown via a shared 4-sprite lookup (Common/Uncommon/Rare/Epic) on `ShopUIController`, not a per-`CigData` field, since rarity is rolled per-purchase.
+
+Remaining, to build by hand:
+1. **4 rarity icon sprites** (Common/Uncommon/Rare/Epic) — placeholders are fine for testing.
+2. **`Cig Card` prefab** — a panel with an `Image` (icon), a nested `Image` (rarity frame/badge), a `Button` over the whole card, and an optional child object for the selected-highlight (inactive by default). Add `CigCardUI`, wire its 4 fields.
+3. **Shop panel**, sibling of the old store panel inside `Player Canvas HardcoreMode.prefab` (inactive by default):
+   - `Buy Tab Panel` — 5 instances of `Cig Card`.
+   - `Burn Tab Panel` (start inactive) — 5 instances of `Cig Card` (matches `Pack.MaxSlots`).
+   - One "Switch Tab" button + label text.
+   - One "Coins" TMP text.
+   - One shared "Detail" TMP text box.
+   - One "Confirm" button + label text.
+   - One "Continue" button.
+4. Add `ShopUIController` to the panel root; wire every serialized field — panels, tab button + label, coins/detail text, confirm button + label, continue button, the 5 buy slots, the 5 burn slots, and the 4 rarity sprites in Common→Epic order.
+5. Fill in `description` and `icon` on the existing test `CigData` asset (`MachineGun Upgrade.asset`) and any new ones.
+6. This only needs to exist in `RoguelikeMode.unity` for now — `BossArena` still has no `Pack Manager` (open item from Step 2), so don't wire the shop there yet.
+
+Once wired: clear a dungeon via the debug skip button → shop should open → Buy/Burn should be testable end-to-end → Continue hands back to `ContinueDungeon()`.
 
 **After Step 4:** create the remaining `CigData` assets, one per shipped lineage. Naming follows the project's Title-Case-with-spaces convention.
 

@@ -274,9 +274,10 @@ public class RoguelikeManager : MonoBehaviour
             return;
         }
 
-        // TODO(UpgradeSystem Step 3): open ShopUIController here instead of
-        // continuing straight through — no shop exists yet.
-        ContinueDungeon();
+        if (ShopUIController.Instance != null)
+            ShopUIController.Instance.Open();
+        else
+            ContinueDungeon(); // no shop wired into this scene yet — don't block play
     }
 
     private void LoadBossLevel()

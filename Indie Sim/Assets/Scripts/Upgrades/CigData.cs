@@ -11,6 +11,13 @@ public class CigData : ScriptableObject
 {
     public string id;
     public string displayName;
+
+    [TextArea]
+    public string description;
+
+    [Tooltip("The cig's own art, shown on its shop card.")]
+    public Sprite icon;
+
     public string lineageId;
     public Brand brand;
     public TargetSlot targetSlot;

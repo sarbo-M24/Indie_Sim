@@ -1,0 +1,79 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &7760074649991473308
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3991953933163254641}
+  - component: {fileID: 5813312457878052832}
+  - component: {fileID: 5901976426570299869}
+  - component: {fileID: 153496713909373001}
+  m_Layer: 0
+  m_Name: __Pack Manager__
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3991953933163254641
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7760074649991473308}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 31.4571, y: 11.94257, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5813312457878052832
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7760074649991473308}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 09a29a815b67f5041bb5aabec47d32fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Pack
+  debugTestCig: {fileID: 11400000, guid: 22df2af550a3db643a9944a75dec56d3, type: 2}
+--- !u!114 &5901976426570299869
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7760074649991473308}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f3e0b1831c1cbe4ba87a164fd723f57, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CigPool
+  catalog:
+  - {fileID: 11400000, guid: d196b8ac014e6c64aa3e47b1b426401d, type: 2}
+  - {fileID: 11400000, guid: 22df2af550a3db643a9944a75dec56d3, type: 2}
+  - {fileID: 11400000, guid: 33da708e6de35a6408f1428ce1fa76dc, type: 2}
+  - {fileID: 11400000, guid: 4e234566ce742a445a16ce310f9b8890, type: 2}
+  - {fileID: 11400000, guid: be14680655a045144981cd1540fa8b8a, type: 2}
+--- !u!114 &153496713909373001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7760074649991473308}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98b58929db33f6d4d81efd8a8e3bfc76, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BurnResolver
