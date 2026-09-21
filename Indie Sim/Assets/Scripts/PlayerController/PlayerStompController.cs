@@ -24,6 +24,14 @@ public class PlayerStompController : MonoBehaviour
     [SerializeField] private float stompScreenShakeDuration = 0.1f;
     [SerializeField] private float stompScreenShakeAmp = 10.0f;
 
+    [Header("Stomp Bullet Circle Upgrade")]
+    [Tooltip("Speed of the bullets fired in a ring when the Stomp Bullet Circle upgrade is held/burned.")]
+    [SerializeField] private float stompBulletSpeed = 12f;
+    [SerializeField] private float stompBulletLifetime = 2f;
+    [Tooltip("Found automatically at runtime via the 'BulletPool' tag if left empty — same pool the enemies use, bullets are reconfigured per-shot via Bullet.Initialize's layer overrides.")]
+    [SerializeField] private BulletPool bulletPoolOverride;
+    private BulletPool bulletPool;
+
     // ✅ UI Reference — drag your light icon Image here in Inspector
     [Header("Cooldown UI")]
     [SerializeField] private Image lightIcon; // Image Type: Filled, Radial360, Top
@@ -84,8 +92,10 @@ public class PlayerStompController : MonoBehaviour
 
     private void PerformStomp()
     {
-        float finalRadius = stompRadius;
-        int finalDamage = stompDamage;
+        PackStats stats = Pack.Instance != null ? Pack.Instance.Stats : PackStats.Baseline;
+
+        float finalRadius = stompRadius + stats.StompBonusRadius;
+        int finalDamage = stompDamage + stats.StompBonusDamage;
 
         Debug.Log($"STOMP! Radius: {finalRadius}, Damage: {finalDamage}");
 
@@ -102,6 +112,50 @@ public class PlayerStompController : MonoBehaviour
 
         DestroyBulletsInRange(playerPos, finalRadius);
         DamageAndPushEnemies(playerPos, finalRadius, finalDamage);
+
+        if (stats.StompBulletCount > 0)
+            FireBulletCircle(playerPos, stats.StompBulletCount, finalDamage);
+    }
+
+    /// <summary>
+    /// Stomp Bullet Circle upgrade: fires bulletCount player-owned bullets evenly
+    /// spaced in a ring. Reuses the enemy Bullet/BulletPool infrastructure —
+    /// there is no separate player-bullet prefab, so each spawn overrides the
+    /// pooled bullet's damageable/destruction layers to the stomp's own
+    /// enemy/wall layers for the duration of that single shot.
+    /// </summary>
+    private void FireBulletCircle(Vector2 origin, int bulletCount, int damagePerBullet)
+    {
+        if (!ResolveBulletPool()) return;
+
+        for (int i = 0; i < bulletCount; i++)
+        {
+            float angle = (360f / bulletCount) * i * Mathf.Deg2Rad;
+            Vector2 direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+            Vector2 velocity = direction * stompBulletSpeed;
+
+            bulletPool.SpawnBullet(origin, velocity, damagePerBullet, stompBulletLifetime, stompEnemyLayer, stompWallLayer);
+        }
+    }
+
+    private bool ResolveBulletPool()
+    {
+        if (bulletPool != null) return true;
+
+        if (bulletPoolOverride != null)
+        {
+            bulletPool = bulletPoolOverride;
+            return true;
+        }
+
+        GameObject poolObj = GameObject.FindWithTag("BulletPool");
+        if (poolObj != null) bulletPool = poolObj.GetComponent<BulletPool>();
+        if (bulletPool == null) bulletPool = FindFirstObjectByType<BulletPool>();
+
+        if (bulletPool == null)
+            Debug.LogWarning("[PlayerStompController] Stomp Bullet Circle is active but no BulletPool exists in this scene.");
+
+        return bulletPool != null;
     }
 
     private void DestroyBulletsInRange(Vector2 playerPos, float radius)
@@ -120,7 +174,8 @@ public class PlayerStompController : MonoBehaviour
         }
     }
 
-    private void DamageAndPushEnemies(Vector2 playerPos, float radius, int damage)
+    /// <summary>Public so the Dash AoE upgrade (PlayerController) can reuse this wholesale.</summary>
+    public void DamageAndPushEnemies(Vector2 playerPos, float radius, int damage)
     {
         Collider2D[] enemies = Physics2D.OverlapCircleAll(playerPos, radius, stompEnemyLayer);
 

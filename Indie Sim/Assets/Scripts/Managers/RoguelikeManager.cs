@@ -13,7 +13,7 @@ public class RoguelikeManager : MonoBehaviour
     [SerializeField] private Teleporter teleporter;
 
     [Header("Demo Settings")]
-    [SerializeField] private int roomsTillBoss = 3;
+    [SerializeField] private int roomsTillBoss = 5; // Raised from 3 (Step 4) so a run has enough shop visits (4-5) to actually fill the pack and exercise Burn.
     [SerializeField] private string bossSceneName = "BossLevel";
     [SerializeField] private string roguelikeScene2Name = "RoguelikeModeEmpty";
 

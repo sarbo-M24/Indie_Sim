@@ -1,14 +1,83 @@
 # Upgrade System — Execution Plan
 
 **Companion to:** `UpgradeSystemSpec.md` (design) and `DemoBeforeIGDC.md` (schedule).
-**Status (2026-09-18):** Steps 0–2 implemented and committed (`712ab28`, `b9297b1`, `0817873`). Step 2's acceptance checklist was re-verified by reading the code (not by playtesting in-editor — see below). Two open gaps found need a decision before Step 3 starts:
 
-1. **"Replace a held lineage with a higher tier" is unreachable through the actual shop flow.** `Pack.TryAdd()` (`Assets/Scripts/Upgrades/Pack.cs:85`) implements replace-in-place correctly in isolation, but `CigPool` permanently removes a lineage's only `CigData` id from the offer pool the instant it's bought (`CigPool.cs:5–9`, `:46`), so that lineage can never be re-offered to trigger the replace branch. This contradicts `UpgradeSystemSpec.md`'s "Cig identity & replacement" section, which assumes a lineage can be bought again at a higher tier. **Needs a decision:** either the pool needs a re-offer mechanism for owned lineages, or that section of the spec is stale and the replace-in-place code path (and this acceptance criterion) should be dropped. Secondary, smaller issue in the same code path: the replace branch swaps the held instance without calling `Remove()`'s effect cleanup on the old one first — harmless today since only `NoOpEffect` is registered, but will silently skip cleanup once a stateful Step 4 effect exists.
-2. **`BossArena.unity` has no `Pack Manager` GameObject yet** — only `RoguelikeMode.unity` does (manual setup checklist item under Step 2, not yet done). Scene-boundary carry-over (Verification item 6) can't be exercised until it's added. Related: `BurnResolver.Update()`'s pause guard (`BurnResolver.cs:60`) only checks `RoguelikeManager.Instance`, which is null in `BossArena` — so once the Pack Manager is added there, burn timers will tick unconditionally with no way to pause them if that scene ever gets its own pause mechanism.
+**Status (2026-09-21) — reconciled against a rewritten `UpgradeSystemSpec.md`, untested in-editor.** Sarbo replaced the spec with a new version that changes two load-bearing things from everything below: **burn duration** and **effect data ownership**. Everything in this pass is a code-only reconciliation — no assets touched.
 
-No in-editor playtesting has happened yet against the Step 2 acceptance list (5/5 block, burn-and-free, timer-vs-level-end race, `PackStats` reverting to baseline) — the above was verified by code reading only.
+1. **Burn is no longer time-based.** Old model: a real-time countdown (`burnDurationSeconds`) ticking only during gameplay, removed at timer-zero *or* level-end, whichever came first. New model (per spec): burning maxes Tier for the next level only and is removed the moment that level ends — full stop, no timer at all. Removed `CigInstance.BurnTimeRemaining`/`BurnFraction` entirely and deleted `BurnResolver.Update()`'s timer-tick — `HandleLevelEnded()` (unchanged) is now the *only* removal path. `BurningCigsHUD` lost its fill-bar countdown (no fraction to show anymore) and is now a plain "burning this level" on/off indicator per slot. `ShopUIController`'s detail text no longer shows a seconds-remaining readout.
+2. ~~**Effect magnitudes must be Inspector-tunable per effect, not one shared hardcoded formula.** ... A new `CigEffectConfig` MonoBehaviour holds one Inspector-editable instance of each of the 8 effects; `CigEffectRegistry` routes through `CigEffectConfig.Instance`...~~ — **superseded same-day by a second spec revision, see below.** `CigEffectConfig`/`CigEffectRegistry`/`CigEffects.cs` no longer exist.
+3. ~~**`IUpgradeEffect` signature changed**... Kept `Contribute(CigInstance, ref PackStats)` as a fourth method...~~ — the signature and the `Contribute` addition are both still accurate, just implemented differently now (see below).
+4. **`CigData.lineageId` is gone.** Per the new spec, "one asset = one lineage now, so no separate lineageId needed" — `id` alone is the replace-in-place key. `Pack.FindByLineage`/`CanAdd`/`TryAdd` now key off `instance.Data.id`. **This resolves the previously-flagged bug** where `Stomp Upgrade` (`id: 201`) and `Stomp Upgrade 2` (`id: 202`) shared `lineageId: 3` and would've incorrectly replaced each other in one slot — with `id` as the only key, they're automatically independent slots. The existing 5 `.asset` files still have an orphaned `lineageId` value serialized on disk; Unity silently ignores it since the field no longer exists in code. **Superseded by point 7 below anyway** — those 5 assets need to be recreated regardless.
+5. **`CigData.burnDurationSeconds` is gone** — meaningless under the new burn model.
+6. **Dash AoE radius fixed to match spec wording.** Spec: "dash distance = the circle's diameter." `PlayerController.ApplyDashAoe()` uses `distanceTraveled / 2f` as the radius (was the full distance, plus a per-tier bonus the spec explicitly rules out — "Radius is derived at runtime from the dash's actual distance, never authored"). `PackStats.DashAoeRadius` field removed.
 
-**Next up:** Step 3's code is written (see "After Step 3" under Manual setup below) — paused here for the manual Editor setup checklist, to resume in a later session. The two gaps above are still unresolved and worth a decision before the Step 4 catalog work starts.
+**Resolved, same day:** the new spec's Core Loop section describes "two tabs: Buy and Burn," but that's explicitly superseded by the user's decision — the shop UI **stays** as shipped in Step 3: Buy and Burn both visible at once in one panel, no tabs, independent selections/confirm buttons for each. `UpgradeSystemSpec.md`'s wording is stale on this one point; `ShopUIController.cs`'s current shape (see Step 3 below) is the source of truth for the shop layout, not the spec's tab description.
+
+---
+
+## Second same-day revision — `CigData` becomes an abstract base, effects live on the assets themselves
+
+Sarbo replaced the spec again a few hours later with a third version that changes *where effect data and code live* — this supersedes point 2 above entirely, before `CigEffectConfig` was ever wired into a scene.
+
+7. **`CigData` is now `abstract` and implements `IUpgradeEffect` directly.** No more `effectId` enum + registry indirection: the concrete subclass asset *is* the effect. `CigEffectId` enum, `CigEffectRegistry.cs`, `CigEffectConfig.cs`, and `CigEffects.cs` are all deleted. `Pack.cs`/`BurnResolver.cs` now call `instance.Data.Apply(...)`/`.ApplyMaxed(...)`/`.Remove()`/`.Contribute(...)` directly instead of going through a registry lookup. `Contribute(CigInstance, ref PackStats)` stays on the interface for the same reason as before (pull-based, scene-boundary-safe) — the spec is silent on the "how," this isn't in conflict with it.
+8. **8 concrete `CigData` subclasses, one file each** (`Assets/Scripts/Upgrades/*.cs`), each `[CreateAssetMenu]`-tagged so Sarbo can right-click → Create → Upgrades → *(name)* individually. Crit and Bounce are each one subclass instantiated twice (once per weapon slot) — 8 subclasses cover the 10 lineages, per the spec's own count:
+
+   | Subclass file | CreateAssetMenu name | Lineage(s) it covers | Own tunable fields |
+   |---|---|---|---|
+   | `CritChanceCigData.cs` | Upgrades/Crit Chance Cig | Primary crit, Secondary crit (2 instances, `targetSlot` picks the bucket) | `critChancePerTier[5]`, `critDamageMultiplier` (flat), `damagePerTier[5]` (flat weapon damage — see the 2026-09-21 "weapon dmg" update below), `rarityConfig` ref |
+   | `BulletBounceCigData.cs` | Upgrades/Bullet Bounce Cig | Primary bounce, Secondary bounce (2 instances) | `bounceCount` (flat) |
+   | `StompSeekCigData.cs` | Upgrades/Stomp Seek Cig | Stomp seek | `radiusPerTier[5]`, `damagePerTier[5]`, `rarityConfig` ref |
+   | `StompCircleCigData.cs` | Upgrades/Stomp Circle Cig | Stomp circle | `bulletCountPerTier[5]`, `damagePerTier[5]`, `rarityConfig` ref |
+   | `DashPostDamageCigData.cs` | Upgrades/Dash Post-Damage Cig | Dash post-damage window | `damageMultiplierPerTier[5]`, `durationSeconds` (flat), `rarityConfig` ref |
+   | `DashAoECigData.cs` | Upgrades/Dash AoE Cig | Dash AoE | `damage` (flat) |
+   | `DashDeflectCigData.cs` | Upgrades/Dash Deflect Cig | Dash deflect | none — pure flag |
+   | `ChainDashCigData.cs` | Upgrades/Chain Dash Cig | Chain dash | `extraCharges` (flat) |
+
+   Every field lives directly on the asset's own Inspector alongside the inherited identity fields (`id`, `displayName`, `description`, `icon`, `brand`, `targetSlot`, `hasTierRarity`, `cost`) — nothing to cross-reference, per the spec's whole point of this revision.
+9. **New `RarityConfig.cs`** (`[CreateAssetMenu]`) — the shared rarity→bonus asset, replacing the old static `TierRarityTable` C# class entirely (deleted). One asset, 4 fields (Common/Uncommon/Rare/Epic bonus %). Every tiered subclass above has its own `rarityConfig` field — **wire all of them to the same one `RarityConfig` asset instance** (the 11th asset). The 4 purely-flat subclasses (Bounce, DashAoE, DashDeflect, ChainDash) don't reference it at all since they never use rarity.
+10. **⚠️ Breaking for the 5 existing `.asset` files.** `MachineGun Upgrade.asset`, `Shotgun Upgrade.asset`, `Dash Upgrade.asset`, `Stomp Upgrade.asset`, `Stomp Upgrade 2.asset` were all created as instances of the old concrete `CigData` class. Now that `CigData` is `abstract`, Unity cannot load them as-is — they'll show as broken/missing-type in the Inspector once this compiles. **These are not being auto-migrated** (Claude Code doesn't touch assets) — see Manual Setup below for what replaces them. The old 5 files can be deleted once their replacements exist; until then they're harmless dead weight, not a compile error (C# scripts compile fine regardless of what's serialized on disk).
+
+---
+
+## Design change (2026-09-21, same day) — weapon upgrades now grant damage too, not just crit
+
+Per the user's direction: the MachineGun and Shotgun upgrades should both increase weapon damage *and* crit chance from the same cig, using `FinalDmg = WeaponBaseDmg + UpgradeDmg + (RarityBonus × UpgradeDmg)` — the same additive-plus-rarity shape as every other tiered effect, just applied to weapon damage now too.
+
+- **`CritChanceCigData`** (kept, not removed or split into a new class) gained a `damagePerTier[5]` field (`UpgradeDmg`) alongside its existing crit fields. `Contribute()` now also writes `PrimaryWeaponBonusDamage`/`SecondaryWeaponBonusDamage` (new `PackStats` fields) using the same `rarityConfig` bonus already resolved for crit chance — one asset, one rarity roll, two effects.
+- **`PlayerConeShooter.GetDynamicWeaponDamage()`** — `WeaponBaseDmg` (`currentWeapon.baseDamagePerShot`) now has the resolved `UpgradeDmg + RarityBonus×UpgradeDmg` total added on top, per weapon slot, before the (separate, pre-existing) dash-damage-window multiplier is applied.
+- No asset changes needed beyond what Step 4's checklist already asks for — `MachineGun Crit Upgrade`/`Shotgun Crit Upgrade` (or whatever Sarbo names them) are still `Crit Chance Cig` instances, just with the new `Damage Per Tier` array now visible in their Inspector to fill in alongside the crit-chance array.
+
+---
+
+**Status (2026-09-18):** Steps 0–3 implemented, committed (`712ab28`, `b9297b1`, `0817873`, `38eb012` "Store UI added"), and playtested working in-editor. `__Pack Manager__.prefab` (`Pack` + `CigPool` + `BurnResolver`) is instanced in both `RoguelikeMode.unity` and `BossArena.unity`, closing gap #2 below. The shop UI is live on `Player Canvas RoguelikeMode.prefab` and confirmed working end to end: buy, burn, and the gameplay burn-countdown HUD.
+
+**Step 3 deviated from this doc's original design in one deliberate way, at the user's direction:** no Buy/Burn tabs. Both lists are visible at once in the same panel, each with its own independent card selection and its own confirm button (`buyButton` / `burnButton` on `ShopUIController`), so a buy selection and a burn selection can be held simultaneously without one clearing the other. The single shared `confirmButton` + tab-toggle design described further down is superseded by this — see `ShopUIController.cs` for the current shape.
+
+**New this step, not in the original plan:** `BurningCigsHUD.cs` — a fixed pool of `Slider`s (sized to `Pack.MaxSlots`) on the gameplay HUD, positional against `Pack.Instance.HeldCigs` like the shop's card slots. Each slot shows/hides based on whether that held cig `IsBurning` and its value follows `CigInstance.BurnFraction` (1 → 0) every frame. `ShopUIController` hides it on `Open()` and restores it in `Close()`, since burn only ticks while gameplay input is enabled (shop open = frozen, by design — unchanged). `ShopUIController.PopulateBurnCards()` also now filters out already-burning cigs from the Burn list, since they can't be burned again — their countdown is only visible on this HUD once the player leaves the shop.
+
+**Correction:** earlier drafts of this doc's manual-setup checklist said to build the shop on `Player Canvas HardcoreMode.prefab`. That prefab is stale/unused (only referenced by the old `Assets/Scenes/Test Scenes/HardcoreMode.unity`). The canvas actually instanced in both live scenes, and where the shop was actually built, is `Assets/Prefabs/UI/Player Canvas RoguelikeMode.prefab`.
+
+**Two bugs hit and fixed during Step 3 build-out**, worth knowing if similar symptoms show up again:
+- `CigCard.prefab`'s `CigCardUI.selectedHighlight` was wired to the card's own root GameObject instead of a dedicated child. Since `SetSelected(false)` runs at the end of both `SetEmpty()` and `Populate()`, every populated card immediately deactivated itself — this was the "store comes up empty" symptom. Fixed by pointing `selectedHighlight` at `None` (a dedicated highlight child can be added later for the visual).
+- `MachineGun Upgrade.asset` and `Shotgun Upgrade.asset` originally shared `lineageId: 100`, which would have made buying one replace the other in the same pack slot (`Pack.TryAdd`'s replace-in-place keys off `lineageId`). Fixed — they're `1` and `2` now.
+
+~~**Still-open item found while reviewing the above:** `Stomp Upgrade.asset` (`id: 201`, `effectId: 5`) and `Stomp Upgrade 2.asset` (`id: 202`, `effectId: 6`) — two distinct mechanics per the Step 4 catalog table (entries #1 and #7) — currently **both have `lineageId: 3`**. Unlike the fixed MachineGun/Shotgun case, their `id`s differ, so `CigPool` will still offer both independently; but `Pack.CanAdd`/`TryAdd` will treat a second one bought while the first is held as a replace-in-place, not a second pack slot.~~ — **Resolved by the 2026-09-21 spec reconciliation**: `lineageId` no longer exists, `id` is the sole replace-in-place key, and `201`/`202` are already distinct — so these two are automatically independent pack slots now, no asset edit needed.
+
+Two open gaps from Step 2, still relevant:
+
+1. **"Replace a held lineage with a higher tier" is unreachable through the actual shop flow for any single-asset-per-lineage entry.** `Pack.TryAdd()` (`Assets/Scripts/Upgrades/Pack.cs:85`) implements replace-in-place correctly in isolation, but `CigPool` permanently removes a lineage's only `CigData` id from the offer pool the instant it's bought (`CigPool.cs:5–9`, `:46`), so that lineage can never be re-offered to trigger the replace branch — except via the two-assets-one-lineage pattern noted above. **Needs a decision:** either the pool needs a re-offer mechanism for owned lineages, or that section of the spec is stale and the replace-in-place code path (and this acceptance criterion) should be dropped. Secondary, smaller issue in the same code path: the replace branch swaps the held instance without calling `Remove()`'s effect cleanup on the old one first — harmless today since only `NoOpEffect` is registered, but will silently skip cleanup once a stateful Step 4 effect exists.
+2. ~~`BossArena.unity` has no `Pack Manager` GameObject yet~~ — resolved, `__Pack Manager__.prefab` is now in both scenes. `BurnResolver.Update()`'s pause guard still only checks `RoguelikeManager.Instance`, which is null in `BossArena` — worth remembering if `BossArena` ever gets its own pause mechanism, since burn timers there currently just tick unconditionally.
+
+**Step 4 catalog code — all 10 lineages implemented (2026-09-21), untested in-editor.** Every `CigEffectId` now has a real effect registered in `CigEffectRegistry` (see `Assets/Scripts/Upgrades/CigEffects.cs`), and every gameplay site the catalog table calls out has been wired to read `Pack.Instance.Stats`. Not playtested yet — built in one pass per the user's direction, to be tested together once done. Also done in this pass: `roomsTillBoss` raised 3→5 (`RoguelikeManager.cs:16`).
+
+What changed, by system:
+- **`PlayerStompController.cs`** — `PerformStomp()` now adds `StompBonusRadius`/`StompBonusDamage` on top of the flat radius/damage, and fires a `FireBulletCircle()` ring of player-owned bullets when `StompBulletCount > 0`. `DamageAndPushEnemies()` is now `public` (reused by Dash AoE). The bullet circle reuses the enemy `Bullet`/`BulletPool` — no new prefab — by overriding `damageableLayers`/`destructionLayers` per-shot via `Bullet.Initialize`'s new optional params, to the stomp's own `stompEnemyLayer`/`stompWallLayer`. Pool is found at runtime via the `"BulletPool"` tag (same convention as `TriangleEnemy`) or `bulletPoolOverride` if you'd rather wire it directly.
+- **`PlayerController.cs`** — `canDash` (bool) replaced with `dashCharges` (int), capped at `1 + Pack.Instance.Stats.DashExtraCharges`; charges recharge one at a time on a shared timer instead of gating the whole ability, so Chain Dash lets you dash again immediately if a charge is banked. Dash completion now fires `ApplyDashAoe()` (radius = actual distance travelled + `DashAoeRadius`, reuses `PlayerStompController.DamageAndPushEnemies`) and `StartDashDamageWindowIfActive()` (tints the body sprite and starts a timer `PlayerConeShooter` reads via the new `GetDashDamageMultiplier()`). Every dash physics step also calls `TryDeflectBulletsNearby()`, which flips any enemy `Bullet` within `deflectDetectionRadius` (new field) around the player.
+- **`PlayerConeShooter.cs`** — `GetDynamicWeaponDamage()` now multiplies by the dash damage window. Crit is rolled per-hit (not per-shot) inside `BulletTrailCoroutine`/`PiercingBulletTrailCoroutine` via the new `ApplyCrit()`, so a shotgun's 6 pellets crit independently. Bounce chains from `BulletTrailCoroutine` via `ChainBounces()`/`FindNearestBounceTarget()`, extending the visual bullet's path through `AnimateBulletAlongPath()` (multi-waypoint Lerp instead of one straight line). Primary vs. Secondary is resolved by `currentWeapon.weaponType == Shotgun` (`IsSecondaryWeapon`), since MachineGun/Shotgun are the only two weapons and already differ on that field — no new "which slot" data needed.
+- **`Bullet.cs`/`BulletPool.cs`** — `Initialize`/`SpawnBullet` gained optional `damageableLayersOverride`/`destructionLayersOverride` params (default `null` = unchanged, fully backward compatible with every existing enemy call site). Added `Bullet.Deflect(LayerMask, Vector2)` for Dash Deflect and a public `CurrentVelocity` getter.
+- **`DamageNumberManager.Spawn`/`DamageNumberPopup.Initialize`** — gained an optional `isCrit` param (default `false`) that colors/scales the popup and appends `!`.
+
+**Manual work still needed before this is testable — see "After Step 4" under Manual Setup below**, which lists the 5 new `CigData` assets to create and the new Inspector fields to wire on the player prefab. Until those exist, the corresponding upgrades simply can't be offered/granted (the `DebugUpgradeInjector` tool needs a `CigData` asset per entry too).
 
 ---
 
@@ -43,13 +112,9 @@ Three findings reshape the build. They are the reason this plan is not a straigh
 
 ---
 
-## Flagged deviation from UpgradeSystemSpec
+## Flagged deviation from UpgradeSystemSpec — RESOLVED by the second same-day spec revision
 
-`UpgradeSystemSpec.md:64` specifies `CigData.effect` as "a reference to an `IUpgradeEffect`." A C# interface cannot be assigned in the Inspector without either `[SerializeReference]` (awkward authoring) or making every effect its own ScriptableObject asset (8 more assets to hand-create).
-
-**Instead:** `CigData` carries an `effectId` enum, and a static registry in code maps id → effect instance. Effects still implement `IUpgradeEffect` with the exact `Apply` / `ApplyMaxed` / `Remove` lifecycle. This is purely how the reference is resolved.
-
-**Why:** Claude Code may not create assets (`UpgradeSystemSpec.md:9`) — every asset is hand-made work for Sarbo. This keeps that at 10 assets instead of 18, and removes a whole class of "forgot to drag the effect in" wiring bugs.
+This section originally covered `effectId` + a static registry as a workaround for "a C# interface can't be assigned in the Inspector." **That workaround is gone.** The spec's newest revision resolves the underlying problem a different way: `CigData` is `abstract` and each concrete subclass *implements* `IUpgradeEffect` directly, so there's no interface reference to assign in the first place — the asset itself is the effect. See "Second same-day revision" above for the current shape. Left here only so the history of *why* the old `effectId` design existed isn't lost.
 
 ---
 
@@ -196,30 +261,46 @@ Per `UpgradeSystemSpec.md:9`, Claude Code only writes C#. These are handed off a
 
 **After Step 2:** add a `Pack Manager` GameObject to `RoguelikeMode.unity` and `BossArena.unity`, carrying `Pack`, `CigPool`, and `BurnResolver`. Assign the catalog array on `CigPool`.
 
-**After Step 3 (2026-09-18 — code written, setup not yet done, paused here until we resume):**
+**After Step 3 — done (2026-09-18), built and playtested working.**
 
-Code already in place: `CigData.cs` has `description` (multiline) and `icon` (Sprite) fields now. `CigCardUI.cs` (new) is a dumb, reusable card component — `icon` Image, `rarityIcon` Image, a `Button`, an optional `selectedHighlight` GameObject, exposes `Populate()`/`SetEmpty()`/`SetSelected()`/`OnClicked`. `ShopUIController.cs` (new) owns both tabs, one shared Confirm button, one shared detail text field, coin display, and populates card slots from `CigPool`/`Pack`. `RoguelikeManager.cs:277`'s old TODO now calls `ShopUIController.Instance.Open()` if one exists in the scene, falling back to `ContinueDungeon()` otherwise (so the debug-skip flow still works before the UI is wired in).
+Final shape, superseding the "locked in" design originally written here: no tabs. `Cig Card` prefab (`Assets/Prefabs/Upgrades/CigCard.prefab`) is a dumb, reusable component — `icon` Image, `rarityIcon` Image, a `Button`, a `selectedHighlight` GameObject (currently `None`, see the fixed-bugs note above). `ShopUIController` shows the Buy list and the Burn list simultaneously in one panel on `Player Canvas RoguelikeMode.prefab`, each with its own selection and its own confirm button (`buyButton` / `burnButton`, no shared Confirm, no tab-toggle). `RoguelikeManager.cs:277` calls `ShopUIController.Instance.Open()` if one exists in the scene, falling back to `ContinueDungeon()` otherwise.
 
-Interaction design locked in: Buy and Burn both use select-a-card → highlight → shared Confirm button (not one-click burn). Rarity is shown via a shared 4-sprite lookup (Common/Uncommon/Rare/Epic) on `ShopUIController`, not a per-`CigData` field, since rarity is rolled per-purchase.
+`BurningCigsHUD` (new, not in the original plan) sits separately on the same canvas, outside `Shop Panel`, and shows live burn countdowns during gameplay — see the top status section for details.
 
-Remaining, to build by hand:
-1. **4 rarity icon sprites** (Common/Uncommon/Rare/Epic) — placeholders are fine for testing.
-2. **`Cig Card` prefab** — a panel with an `Image` (icon), a nested `Image` (rarity frame/badge), a `Button` over the whole card, and an optional child object for the selected-highlight (inactive by default). Add `CigCardUI`, wire its 4 fields.
-3. **Shop panel**, sibling of the old store panel inside `Player Canvas HardcoreMode.prefab` (inactive by default):
-   - `Buy Tab Panel` — 5 instances of `Cig Card`.
-   - `Burn Tab Panel` (start inactive) — 5 instances of `Cig Card` (matches `Pack.MaxSlots`).
-   - One "Switch Tab" button + label text.
-   - One "Coins" TMP text.
-   - One shared "Detail" TMP text box.
-   - One "Confirm" button + label text.
-   - One "Continue" button.
-4. Add `ShopUIController` to the panel root; wire every serialized field — panels, tab button + label, coins/detail text, confirm button + label, continue button, the 5 buy slots, the 5 burn slots, and the 4 rarity sprites in Common→Epic order.
-5. Fill in `description` and `icon` on the existing test `CigData` asset (`MachineGun Upgrade.asset`) and any new ones.
-6. This only needs to exist in `RoguelikeMode.unity` for now — `BossArena` still has no `Pack Manager` (open item from Step 2), so don't wire the shop there yet.
+`__Pack Manager__.prefab`'s `CigPool.catalog` now holds 5 `CigData` assets (`MachineGun Upgrade`, `Shotgun Upgrade`, `Dash Upgrade`, `Stomp Upgrade`, `Stomp Upgrade 2`), instanced into both `RoguelikeMode.unity` and `BossArena.unity`.
 
-Once wired: clear a dungeon via the debug skip button → shop should open → Buy/Burn should be testable end-to-end → Continue hands back to `ContinueDungeon()`.
+Rarity icon sprites are still placeholders/unset (`rarityIcons` is empty on `ShopUIController` in-scene) — cosmetic only, doesn't block testing.
 
-**After Step 4:** create the remaining `CigData` assets, one per shipped lineage. Naming follows the project's Title-Case-with-spaces convention.
+**After Step 4 — superseded by the second same-day spec revision. Do this instead:**
+
+**In progress:** Sarbo has already created `New Crit Chance Cig Data.asset`, `New Stomp Seek Cig Data.asset`, and `Rarity Config.asset` in `Assets/Prefabs/Upgrades/` (confirms the new subclass scripts compile clean in the Editor). Still need: the other 8 lineage assets, the `rarityConfig` wiring on the ones created so far, renaming/filling in `id`/`displayName`/`cost`/etc., and adding all 10 to `CigPool.catalog`.
+
+1. **Delete or ignore the 5 old `.asset` files** (`MachineGun Upgrade`, `Shotgun Upgrade`, `Dash Upgrade`, `Stomp Upgrade`, `Stomp Upgrade 2` in `Assets/Prefabs/Upgrades/`) — they're instances of `CigData`, which is now `abstract` and can't be loaded as a concrete type. Note their old `id`/`cost`/`displayName`/`description`/`icon` values before deleting if you want to carry them over to the replacements below.
+
+2. **Create all 10 `CigData` assets fresh**, via right-click → Create → Upgrades → *(subclass name)* in the Project window — each subclass shows up as its own menu entry (see the table in "Second same-day revision" above for exact subclass/menu names and which fields each one has). For each:
+
+   | New asset (suggested name) | Subclass to create | targetSlot | hasTierRarity |
+   |---|---|---|---|
+   | MachineGun Crit Upgrade | Crit Chance Cig | PrimaryWeapon | true |
+   | Shotgun Crit Upgrade | Crit Chance Cig | SecondaryWeapon | true |
+   | MachineGun Bounce Upgrade | Bullet Bounce Cig | PrimaryWeapon | false |
+   | Shotgun Bounce Upgrade | Bullet Bounce Cig | SecondaryWeapon | false |
+   | Stomp Seek Upgrade | Stomp Seek Cig | Stomp | true |
+   | Stomp Circle Upgrade | Stomp Circle Cig | Stomp | true |
+   | Dash Post-Damage Upgrade | Dash Post-Damage Cig | Dash | true |
+   | Dash AoE Upgrade | Dash AoE Cig | Dash | false |
+   | Dash Deflect Upgrade | Dash Deflect Cig | Dash | false |
+   | Chain Dash Upgrade | Chain Dash Cig | Dash | false |
+
+   Give each a unique `id` string (e.g. reuse `101`/`102`/`201`/`202`/`301` for the 5 that replace old assets, pick new ones for the other 5) and fill in `displayName`/`description`/`icon`/`cost` as before. Add all 10 to `__Pack Manager__.prefab`'s `CigPool.catalog` array.
+
+3. **Create 1 `RarityConfig` asset** (right-click → Create → Upgrades → Rarity Config) and set its 4 bonus-% fields. **Wire it into every tiered asset's `rarityConfig` field**: MachineGun Crit, Shotgun Crit, Stomp Seek, Stomp Circle, Dash Post-Damage (5 of the 10 — the other 5 are flat and have no `rarityConfig` field at all).
+
+4. **Wire new Inspector fields on `Temp -Player.prefab`:**
+   - `PlayerStompController`: `Stomp Bullet Speed`/`Stomp Bullet Lifetime` (defaults are fine to start) — `Bullet Pool Override` can stay empty, it auto-finds the scene's `BulletPool` by tag.
+   - `PlayerController`: `Enemy Bullet Layer` — set to whatever layer enemy bullets live on (same layer as `PlayerStompController`'s existing `Stomp Bullet Layer`). `Deflected Bullet Target Layer` — set to the enemy layer (same as `PlayerStompController`'s `Stomp Enemy Layer`). `Deflect Detection Radius` (default `1.2`) and `Dash Damage Window Tint` (default red) are cosmetic/feel — tune by testing.
+
+5. **Known cosmetic caveat, not fixed in this pass:** `PlayerController`'s new dash-damage-window tint and `PlayerHealth`'s existing hit-flash both write directly to the same body `SpriteRenderer.color` with no coordination. If you get hit while the dash window is active (or vice versa), one can stomp the other's color — visual glitch only, not a gameplay bug. Worth a look if it's noticeable in testing.
 
 ---
 

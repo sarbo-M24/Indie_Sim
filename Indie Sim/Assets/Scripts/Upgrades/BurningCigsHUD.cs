@@ -2,13 +2,15 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// One fill bar per active pack slot, live only during actual gameplay —
+/// One indicator per active pack slot, live only during actual gameplay —
 /// ShopUIController hides this whenever the shop is open. Fixed pool sized
 /// to Pack.MaxSlots, positional rather than bound to a specific CigInstance
-/// (same convention as ShopUIController's card slots): slot i shows
-/// Pack.Instance.HeldCigs[i] if that instance is burning, else it's hidden.
-/// Value follows CigInstance.BurnFraction (1 -> 0); a slot goes back to
-/// hidden on its own once BurnResolver removes the instance at 0.
+/// (same convention as ShopUIController's card slots): slot i is shown (full)
+/// if Pack.Instance.HeldCigs[i] is burning, else hidden. Per
+/// UpgradeSystemSpec.md burning is not time-based (it resolves for exactly
+/// the next level, not a countdown), so this is a plain on/off "burning this
+/// level" indicator rather than a fill bar — a slot goes back to hidden on
+/// its own once BurnResolver removes the instance at the level boundary.
 /// </summary>
 public class BurningCigsHUD : MonoBehaviour
 {
@@ -41,7 +43,7 @@ public class BurningCigsHUD : MonoBehaviour
                 slider.gameObject.SetActive(burning);
 
             if (burning)
-                slider.value = held[i].BurnFraction;
+                slider.value = 1f;
         }
     }
 

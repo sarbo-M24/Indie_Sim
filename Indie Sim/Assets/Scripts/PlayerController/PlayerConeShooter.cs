@@ -41,6 +41,8 @@ public class PlayerConeShooter : MonoBehaviour
     [SerializeField] private WeaponVFXHandler vfxHandler; // Handles all visual/audio effects
     [SerializeField] private WeaponInventory weaponInventory; // Knows what weapon we're holding
 
+    private PlayerController playerController; // Read for the Dash Damage Window upgrade's multiplier
+
     // Gates firing while a menu (e.g. the upgrade store) is open.
     // Set via SetInputEnabled(), routed through RoguelikeManager.SetGameplayInputEnabled().
     private bool gameplayInputEnabled = true;
@@ -73,6 +75,7 @@ public class PlayerConeShooter : MonoBehaviour
         inputActions.Player.Fire.canceled += ctx => isFiring = false;
 
         if (mainCamera == null) mainCamera = Camera.main;
+        playerController = GetComponent<PlayerController>();
     }
 
     private void OnEnable()
@@ -267,9 +270,25 @@ public class PlayerConeShooter : MonoBehaviour
     /// Returns the weapon's final damage = base (from SO) + any bonus earned this run.
     /// Uses the new Phase 2 API — one method handles ALL weapon types automatically.
     /// </summary>
+    /// <summary>
+    /// FinalDmg = WeaponBaseDmg + UpgradeDmg + (RarityBonus x UpgradeDmg), per
+    /// CritChanceCigData — WeaponBaseDmg is currentWeapon.baseDamagePerShot,
+    /// the UpgradeDmg/RarityBonus portion is already resolved into
+    /// Primary/SecondaryWeaponBonusDamage by Pack.Recompute(). The dash damage
+    /// window's multiplier (separate upgrade) applies on top of that total.
+    /// </summary>
     private int GetDynamicWeaponDamage()
     {
-        return currentWeapon.baseDamagePerShot;
+        int baseDamage = currentWeapon.baseDamagePerShot;
+        int bonusDamage = 0;
+        if (Pack.Instance != null)
+        {
+            PackStats stats = Pack.Instance.Stats;
+            bonusDamage = IsSecondaryWeapon ? stats.SecondaryWeaponBonusDamage : stats.PrimaryWeaponBonusDamage;
+        }
+
+        float dashMultiplier = playerController != null ? playerController.GetDashDamageMultiplier() : 1f;
+        return Mathf.RoundToInt((baseDamage + bonusDamage) * dashMultiplier);
     }
 
     /// <summary>
@@ -278,6 +297,130 @@ public class PlayerConeShooter : MonoBehaviour
     private int GetDynamicPierceCount()
     {
         return currentWeapon.maxPierceCount;
+    }
+
+    /// <summary>Only two weapons exist (MachineGun=Standard, Shotgun=Shotgun) — Shotgun is the "secondary" slot.</summary>
+    private bool IsSecondaryWeapon => currentWeapon != null && currentWeapon.weaponType == WeaponData.WeaponType.Shotgun;
+
+    /// <summary>Crit upgrade — rolled per hit, not per shot, so a shotgun's 6 pellets can crit independently.</summary>
+    private int ApplyCrit(int damage, out bool isCrit)
+    {
+        isCrit = false;
+        if (Pack.Instance == null) return damage;
+
+        PackStats stats = Pack.Instance.Stats;
+        float critChance = IsSecondaryWeapon ? stats.SecondaryCritChance : stats.PrimaryCritChance;
+        if (critChance <= 0f) return damage;
+
+        isCrit = Random.value < critChance;
+        if (!isCrit) return damage;
+
+        float critMultiplier = IsSecondaryWeapon ? stats.SecondaryCritMultiplier : stats.PrimaryCritMultiplier;
+        return Mathf.RoundToInt(damage * critMultiplier);
+    }
+
+    /// <summary>
+    /// Applies crit-adjusted damage to one target and reports it (hit effect,
+    /// crosshair feedback, score, floating number). Shared by the direct hit
+    /// and every bounce hop so each one resolves identically.
+    /// </summary>
+    private void ApplyHitDamage(IDamageable target, int damage, Vector3 hitPosition)
+    {
+        int finalDamage = ApplyCrit(damage, out bool isCrit);
+        target.TakeDamage(finalDamage);
+
+        if (hitPosition != Vector3.zero && currentWeapon.hitEffect != null)
+            Instantiate(currentWeapon.hitEffect, hitPosition, Quaternion.identity);
+
+        CustomCrosshair crosshair = FindObjectOfType<CustomCrosshair>();
+        if (crosshair != null) crosshair.ShowHitFeedback();
+
+        Vector3 reportPosition = hitPosition != Vector3.zero ? hitPosition : target.GetGameObject().transform.position;
+        ReportDamage(reportPosition, finalDamage, isCrit);
+    }
+
+    /// <summary>
+    /// Bounce upgrade — chains the hit to the nearest not-yet-hit enemy in
+    /// line of sight, up to the pack's bounce count for this weapon slot.
+    /// Appends each hop's position to waypoints so the visual bullet follows
+    /// the chain instead of stopping at the first target.
+    /// </summary>
+    private void ChainBounces(IDamageable firstTarget, Vector3 firstHitPosition, int damage, List<Vector3> waypoints)
+    {
+        if (Pack.Instance == null) return;
+        int bounceCount = IsSecondaryWeapon ? Pack.Instance.Stats.SecondaryBounceCount : Pack.Instance.Stats.PrimaryBounceCount;
+        if (bounceCount <= 0) return;
+
+        List<IDamageable> hitSoFar = new List<IDamageable> { firstTarget };
+        Vector3 currentPos = firstHitPosition;
+
+        for (int i = 0; i < bounceCount; i++)
+        {
+            IDamageable nextTarget = FindNearestBounceTarget(currentPos, hitSoFar, out Vector3 nextPos);
+            if (nextTarget == null) break;
+
+            ApplyHitDamage(nextTarget, damage, nextPos);
+            waypoints.Add(nextPos);
+            hitSoFar.Add(nextTarget);
+            currentPos = nextPos;
+        }
+    }
+
+    private IDamageable FindNearestBounceTarget(Vector3 fromPosition, List<IDamageable> exclude, out Vector3 hitPosition)
+    {
+        hitPosition = Vector3.zero;
+        float bounceRange = currentWeapon != null ? currentWeapon.coneRange : 8f;
+
+        Collider2D[] colliders = Physics2D.OverlapCircleAll(fromPosition, bounceRange, enemyLayers);
+
+        IDamageable closest = null;
+        float closestDistance = Mathf.Infinity;
+
+        foreach (Collider2D collider in colliders)
+        {
+            IDamageable candidate = collider.GetComponent<IDamageable>();
+            if (candidate == null || candidate.IsDead() || exclude.Contains(candidate)) continue;
+
+            Vector3 candidatePos = candidate.GetGameObject().transform.position;
+            float distance = Vector3.Distance(fromPosition, candidatePos);
+            if (distance >= closestDistance) continue;
+
+            Vector2 direction = ((Vector2)candidatePos - (Vector2)fromPosition).normalized;
+            RaycastHit2D wallCheck = Physics2D.Raycast(fromPosition, direction, distance, bulletTrailWallLayers);
+            if (wallCheck.collider != null) continue;
+
+            closest = candidate;
+            closestDistance = distance;
+            hitPosition = candidatePos;
+        }
+
+        return closest;
+    }
+
+    /// <summary>Animates the visual bullet through each waypoint segment in turn (multi-hop for a bounce chain).</summary>
+    private IEnumerator AnimateBulletAlongPath(GameObject bullet, List<Vector3> waypoints)
+    {
+        for (int i = 0; i < waypoints.Count - 1; i++)
+        {
+            Vector3 segmentStart = waypoints[i];
+            Vector3 segmentEnd = waypoints[i + 1];
+            float distance = Vector3.Distance(segmentStart, segmentEnd);
+            float travelTime = distance / bulletSpeed;
+            float elapsed = 0f;
+
+            while (elapsed < travelTime)
+            {
+                if (bullet == null) yield break;
+                elapsed += Time.deltaTime;
+                bullet.transform.position = Vector3.Lerp(segmentStart, segmentEnd, elapsed / travelTime);
+                yield return null;
+            }
+
+            if (bullet == null) yield break;
+            bullet.transform.position = segmentEnd;
+        }
+
+        Destroy(bullet, 0.2f); // Let trail fade
     }
     /// <summary>
     /// Creates visual bullet trails and applies damage based on weapon type.
@@ -440,12 +583,13 @@ public class PlayerConeShooter : MonoBehaviour
     /// </summary>
     private IEnumerator PiercingBulletTrailCoroutine(Vector3 startPos, Vector3 endPos, List<IDamageable> targetsHit, int damagePerTarget)
     {
-        // 1. APPLY DAMAGE INSTANTLY to all pierced enemies
+        // 1. APPLY DAMAGE INSTANTLY to all pierced enemies (crit rolled per target)
         foreach (IDamageable target in targetsHit)
         {
             if (target != null && !target.IsDead())
             {
-                target.TakeDamage(damagePerTarget);
+                int finalDamage = ApplyCrit(damagePerTarget, out bool isCrit);
+                target.TakeDamage(finalDamage);
 
                 // Show hit effects at each enemy
                 GameObject targetGO = target.GetGameObject();
@@ -454,7 +598,7 @@ public class PlayerConeShooter : MonoBehaviour
                     Instantiate(currentWeapon.hitEffect, targetGO.transform.position, Quaternion.identity);
                 }
 
-                ReportDamage(targetGO != null ? targetGO.transform.position : transform.position, damagePerTarget);
+                ReportDamage(targetGO != null ? targetGO.transform.position : transform.position, finalDamage, isCrit);
             }
         }
 
@@ -550,54 +694,25 @@ public class PlayerConeShooter : MonoBehaviour
     /// </summary>
     private IEnumerator BulletTrailCoroutine(Vector3 startPos, Vector3 endPos, IDamageable target, int damage, Vector3 hitPosition)
     {
-        // 1. APPLY DAMAGE INSTANTLY (hitscan behavior)
+        List<Vector3> waypoints = new List<Vector3> { startPos };
+
+        // 1. APPLY DAMAGE INSTANTLY (hitscan behavior), then chain any bounces.
         if (target != null && damage > 0)
         {
-            target.TakeDamage(damage);
-
-            // Show hit effects
-            if (hitPosition != Vector3.zero && currentWeapon.hitEffect != null)
-            {
-                Instantiate(currentWeapon.hitEffect, hitPosition, Quaternion.identity);
-            }
-
-            // Crosshair feedback
-            CustomCrosshair crosshair = FindObjectOfType<CustomCrosshair>();
-            if (crosshair != null)
-            {
-                crosshair.ShowHitFeedback();
-            }
-
-            ReportDamage(hitPosition != Vector3.zero ? hitPosition : target.GetGameObject().transform.position, damage);
+            ApplyHitDamage(target, damage, hitPosition);
+            waypoints.Add(hitPosition);
+            ChainBounces(target, hitPosition, damage, waypoints);
+        }
+        else
+        {
+            waypoints.Add(endPos);
         }
 
-        // 2. SPAWN VISUAL PROJECTILE (just for show)
+        // 2. SPAWN VISUAL PROJECTILE (just for show) and animate through every hop
         if (bulletProjectilePrefab == null) yield break;
 
         GameObject bullet = Instantiate(bulletProjectilePrefab, startPos, Quaternion.identity);
-
-        // Calculate travel time
-        float distance = Vector3.Distance(startPos, endPos);
-        float travelTime = distance / bulletSpeed;
-        float elapsed = 0f;
-
-        // 3. ANIMATE PROJECTILE TO TARGET (visual only)
-        while (elapsed < travelTime)
-        {
-            if (bullet == null) yield break;
-
-            elapsed += Time.deltaTime;
-            float t = elapsed / travelTime;
-            bullet.transform.position = Vector3.Lerp(startPos, endPos, t);
-            yield return null;
-        }
-
-        // Ensure bullet reaches end
-        if (bullet != null)
-        {
-            bullet.transform.position = endPos;
-            Destroy(bullet, 0.2f); // Let trail fade
-        }
+        yield return AnimateBulletAlongPath(bullet, waypoints);
     }
 
     #endregion
@@ -755,10 +870,10 @@ public class PlayerConeShooter : MonoBehaviour
     /// Reports a landed hit to the score system and spawns a floating damage number.
     /// Called from every damage-application point (standard/shotgun/piercer).
     /// </summary>
-    private void ReportDamage(Vector3 worldPosition, int damage)
+    private void ReportDamage(Vector3 worldPosition, int damage, bool isCrit = false)
     {
         if (ScoreManager.Instance != null) ScoreManager.Instance.AddDamage(damage);
-        if (DamageNumberManager.Instance != null) DamageNumberManager.Instance.Spawn(worldPosition, damage);
+        if (DamageNumberManager.Instance != null) DamageNumberManager.Instance.Spawn(worldPosition, damage, isCrit);
     }
 
     #endregion

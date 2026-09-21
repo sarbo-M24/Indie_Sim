@@ -1,13 +1,25 @@
 using UnityEngine;
 
 /// <summary>
-/// One catalog lineage (e.g. "Primary weapon crit"). Tier and rarity are not
-/// stored here — they're rolled per-purchase onto a CigInstance. effectId is
-/// resolved through CigEffectRegistry rather than referencing IUpgradeEffect
-/// directly, so this asset never needs [SerializeReference] wiring.
+/// One catalog lineage (e.g. "Primary weapon crit"), per UpgradeSystemSpec.md's
+/// data model. Abstract base holding only shared identity/classification
+/// fields — no magnitude numbers live here. Each concrete subclass (see
+/// CritChanceCigData.cs, StompSeekCigData.cs, etc.) implements IUpgradeEffect
+/// directly and adds only the magnitude field(s) it actually needs, so the
+/// asset you create in the Project window *is* the effect: Sarbo fills in
+/// identity and tier-value fields together in one Inspector, nothing to
+/// cross-reference. `id` alone is the lineage identity (one asset = one
+/// lineage) — Pack keys replace-in-place off `id`.
+///
+/// Apply/ApplyMaxed/Remove/Contribute are pure stat contributors on every
+/// subclass (see IUpgradeEffect.cs) and must never write to `this` — this is
+/// a shared ScriptableObject ASSET referenced by every CigInstance of this
+/// lineage, and a runtime write to an asset persists across Editor play
+/// sessions (same invariant this codebase already enforces for WeaponData).
+/// All per-instance runtime state (tier, rarity, burning) lives on
+/// CigInstance instead.
 /// </summary>
-[CreateAssetMenu(menuName = "Upgrades/Cig Data")]
-public class CigData : ScriptableObject
+public abstract class CigData : ScriptableObject, IUpgradeEffect
 {
     public string id;
     public string displayName;
@@ -18,7 +30,6 @@ public class CigData : ScriptableObject
     [Tooltip("The cig's own art, shown on its shop card.")]
     public Sprite icon;
 
-    public string lineageId;
     public Brand brand;
     public TargetSlot targetSlot;
 
@@ -28,8 +39,8 @@ public class CigData : ScriptableObject
     [Tooltip("Coin cost to buy this cig from the shop.")]
     public int cost;
 
-    [Tooltip("Seconds a burned instance's maxed effect lasts once gameplay resumes, before it's removed. Placeholder value — balancing is not part of this pass.")]
-    public float burnDurationSeconds = 20f;
-
-    public CigEffectId effectId;
+    public abstract void Apply(int tier, Rarity rarity);
+    public abstract void ApplyMaxed(Rarity rarity);
+    public abstract void Remove();
+    public abstract void Contribute(CigInstance instance, ref PackStats stats);
 }

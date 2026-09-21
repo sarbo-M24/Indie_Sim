@@ -35,9 +35,8 @@ This is the build spec for the Upgrade System. It supersedes the earlier "burn t
 - Burn tab shows the cigs currently held in the pack.
 - The player can burn any number of them, in any combination, any time the shop is open — not gated behind needing space. Burning is a deliberate choice, not just a forced fallback.
 - Burning an active upgrade does two things:
-  1. The upgrade's effect is computed at **max Tier** — whatever Rarity was actually bought stays as-is; only Tier gets maxed.
-  2. It stays maxed for a **fixed real-time duration** (`burnDurationSeconds`, authored per lineage on `CigData` — not per tier/rarity), counted down only while the player actually has control (not while the shop is open). A HUD fill bar per burning cig shows this countdown once gameplay resumes.
-- **Revised from an earlier "lasts exactly one level" design:** the cig is fully removed — not reverted, just gone, freeing the slot — the instant *either* its timer reaches zero *or* the level ends, whichever comes first. A level clearing early does not let the burn carry into the next level, and a burn timer running out mid-level removes the effect immediately without waiting for the level to end.
+  1. For the **next level only**, that upgrade's effect is computed at **max Tier** — whatever Rarity was actually bought stays as-is; only Tier gets maxed.
+  2. After that level ends, the upgrade is **fully removed** from the pack — not reverted to its pre-burn state, just gone. The slot is now free.
 - This is the only mechanism that frees a pack slot. There's no other discard action.
 
 ---
@@ -52,37 +51,58 @@ Each of the catalog's base upgrades (assault rifle crit, stomp-seeks, dash-AoE, 
 
 ## Data model
 
-### `CigData` (ScriptableObject)
-- `id` — unique string
+### `CigData` — abstract base `ScriptableObject`, with 8 concrete subclasses
+This is the piece that was left vague last pass — "a reference to an effect" doesn't say where you'd actually go to type in a number. Fixing that: `CigData` itself is an **abstract** ScriptableObject holding only the shared identity fields, and implementing `IUpgradeEffect` is left to each concrete subclass below it. There's no separate "effect object" to hunt down — the asset you create *is* the effect, and its Inspector shows identity fields and magnitude fields together in one view, because Unity draws inherited fields and a subclass's own fields in the same Inspector automatically.
+
+Shared base fields (on the abstract `CigData`):
+- `id` — unique string, also the lineage identity (one asset = one lineage)
 - `displayName`
-- `lineageId` — identifies which of the catalog's base upgrades this belongs to (used to enforce the replace-in-place rule above)
 - `brand` — enum, cosmetic only: Mild / Regular / Hard / Mint / Slims / Clove / Electric
 - `targetSlot` — enum: PrimaryWeapon / SecondaryWeapon / Stomp / Dash
-- `hasTierRarity` — bool. False for the flat, one-off upgrades (e.g. "bullets bounce off enemies")
+- `hasTierRarity` — bool. False for the flat, one-off upgrades (e.g. "bullets bounce off enemies", "dash deflects projectiles")
+
+8 concrete subclasses, each adding only the magnitude field(s) it actually needs, tagged with `[CreateAssetMenu]` so they show up individually in the Project window's Create menu:
+- `CritChanceCigData` — a crit % field, per tier. Created twice as separate assets (Primary and Secondary each get their own instance, independently tunable) — 2 of the 10 total assets.
+- `BulletBounceCigData` — a bounce-count field. Also created twice, one per weapon — 2 of the 10.
+- `StompSeekCigData` — a range field and a damage field, per tier.
+- `StompCircleCigData` — a damage field and a bullet-count field, per tier.
+- `DashPostDamageCigData` — a damage % field per tier, plus the fixed 2-second duration.
+- `DashAoECigData` — a damage field per tier. Radius is derived at runtime from the dash's actual distance, never authored here.
+- `DashDeflectCigData` — no magnitude field at all, a pure behavior flag.
+- `ChainDashCigData` — a charge-count field per tier.
+
+8 subclasses, 10 asset instances (crit chance and bullet-bounce each instantiated twice, once per weapon). **This is where you'll actually input data:** create each asset via right-click → Create → [menu path Claude Code sets up] in the Project window, then fill in that asset's own Inspector — the tier-value array for whichever field(s) that upgrade owns, right there, nothing to cross-reference.
+
+### `CigInstance` (runtime, not an asset)
+The Tier and Rarity a specific offer or held cig actually has. Rolled when the shop generates an offer; this — not the `CigData` asset directly — is what lives in the offer pool, the pack, and `RunStats`.
+- `cigData` — reference to the lineage's `CigData` asset
 - `tier` — int 1–4, only meaningful if `hasTierRarity`
 - `rarity` — enum Common / Uncommon / Rare / Epic, only meaningful if `hasTierRarity`
-- `baseDamage`, `upgradedDamage`, `rarityBonus` — numeric fields feeding the formula below (values are design/balancing work, not filled in here)
-- `burnDurationSeconds` — how long a burn lasts once gameplay resumes, in real seconds. Fixed per lineage, independent of the rolled Tier/Rarity.
-- `effect` — reference to an `IUpgradeEffect`
 
-### `IUpgradeEffect` interface
-- `Apply()` — called the instant a cig is bought (immediately active, per the core loop above)
-- `ApplyMaxed()` — called when the cig is burned. Computes the effect at max Tier (4), using whatever Rarity was actually bought — valid for exactly one level.
-- `Remove()` — called when the level-boundary signal fires after a burn. Fully removes the effect — this is not a revert-to-previous-state, since the pre-burn version is also gone.
+### Shared rarity lookup
+One small, separate config asset (e.g. `RarityConfig`) — the **11th asset**, made once, not per-upgrade — mapping Rarity → bonus percentage: Common, Uncommon, Rare, Epic each get one field. Every `CigData` subclass's `Apply`/`ApplyMaxed` reads from this same asset rather than storing its own copy. This is the other place you'll input data, and you'll only ever do it once.
 
-Three lifecycle methods, one interface, every cig (tiered or flat) implements the same shape. A flat cig with `hasTierRarity = false` just has `ApplyMaxed()` do the same thing as `Apply()`, since there's no higher power level to jump to.
+### `IUpgradeEffect` interface (implemented by each `CigData` subclass directly)
+- `Apply(int tier, Rarity rarity)` — called the instant a cig is bought (immediately active, per the core loop above), using the actually-bought tier/rarity
+- `ApplyMaxed(Rarity rarity)` — called when the cig is burned. Internally uses Tier = 4, with whichever Rarity was actually bought — valid for exactly one level
+- `Remove()` — called when the level-boundary signal fires after a burn. Fully removes the effect — this is not a revert-to-previous-state, since the pre-burn version is also gone
 
-### Damage formula (mechanic, not a balance number)
+A flat cig (`hasTierRarity = false`) just has `ApplyMaxed()` call `Apply()` with the same fixed values, since there's no higher power level to jump to.
+
+### Generalized formula (mechanic, not a balance number)
+The same additive-plus-rarity-multiplier shape applies to *whichever* numeric field an effect owns — not only damage:
 ```
-FinalDamage = BaseDamage + UpgradedDamage + (RarityBonus × UpgradedDamage)
+FinalValue = BaseValue + UpgradedValue + (RarityBonus × UpgradedValue)
 ```
-- `BaseDamage` — the weapon/ability's inherent value, untouched by upgrades.
-- `UpgradedDamage` — flat bonus from the cig's Tier (design-authored per tier; values TBD, not balancing work for this pass).
-- `RarityBonus` — percentage multiplier from Rarity (design-authored per rarity, e.g. Common likely = 0%; values TBD).
-- On `ApplyMaxed()`, this same formula evaluates using Tier = 4 (max), with `RarityBonus` unchanged from whatever was actually bought.
+- `BaseValue` — owned by the thing being upgraded, not the cig. For weapon damage specifically, this lives on the weapon script itself (`PlayerConeShooter`), read at the moment of calculation — not duplicated onto `CigData`. For a field with no natural pre-upgrade baseline (e.g. crit chance), `BaseValue` is simply 0.
+- `UpgradedValue` — the effect's own per-tier bonus for that specific field (design-authored per tier, per effect; values TBD).
+- `RarityBonus` — pulled from the shared rarity lookup above, not authored per-cig.
+- On `ApplyMaxed()`, `UpgradedValue` is looked up at Tier = 4 regardless of what was actually bought; `RarityBonus` stays whatever was actually bought.
+
+Flagging one assumption here rather than deciding it silently: this treats every effect's field symmetrically under the rarity multiplier, including non-damage ones like range and charge count. That's a reasonable default, not a directive — say so if you want rarity to only matter for damage-flavored effects and just add flat bonuses elsewhere.
 
 ### `RunStats` addition
-- A held-cigs/pack list (max 5), backed by `GameSession.CurrentRun` as with every other run-scoped system in the refactor. No new escalation field needed.
+- A held-`CigInstance` pack list (max 5), backed by `GameSession.CurrentRun` as with every other run-scoped system in the refactor. No new escalation field needed.
 
 ---
 
@@ -91,7 +111,7 @@ FinalDamage = BaseDamage + UpgradedDamage + (RarityBonus × UpgradedDamage)
 Split into four pieces, not one god object — same standard already applied to critiquing the *old* `UpgradeManager` earlier in this design process:
 
 - **CigPool** — owns the offer pool, tracks what's been bought (removed permanently), generates the Buy tab's current offer set.
-- **Pack** — owns the up-to-5 active `CigData` instances, enforces the replace-in-place rule, handles add/remove.
+- **Pack** — owns the up-to-5 active `CigInstance` entries, enforces the replace-in-place rule, handles add/remove.
 - **BurnResolver** — handles the burn action: invokes `ApplyMaxed()`, registers the pending `Remove()` against the level-boundary signal.
 - **ShopUIController** — pure UI glue between the three above and the two-tab (Buy/Burn) interface. Owns no gameplay state itself.
 
@@ -134,6 +154,7 @@ No open questions remain. This spec is ready for Step 1.
 ## Manual setup — preview
 
 Claude Code should hand these off as instructions rather than create them directly:
-- 10 `CigData` ScriptableObject assets, one per catalog entry above (whether tier/rarity variants of the same lineage are separate assets or computed at runtime from a single asset — Claude Code should propose this and ask rather than assume)
+- 10 `CigData` subclass asset instances (one per lineage — 2 each for `CritChanceCigData` and `BulletBounceCigData`, 1 each for the remaining 6 subclasses). Created via right-click → Create → [menu path] in the Project window, then filled in directly on each asset's own Inspector — identity fields and that upgrade's own tier-value array together in one place.
+- 1 `RarityConfig` asset — the 11th asset, made once, holding the Common/Uncommon/Rare/Epic bonus percentages every `CigData` subclass reads from.
 - A Pack manager GameObject/prefab in the relevant scene(s), holding the `Pack`, `CigPool`, and `BurnResolver` components
 - A Shop UI prefab with the two-tab (Buy/Burn) layout, wired to `ShopUIController`

@@ -44,7 +44,8 @@ public class BulletPool : MonoBehaviour
         return bullet;
     }
 
-    public GameObject SpawnBullet(Vector3 position, Vector2 velocity, int damage, float lifetime)
+    public GameObject SpawnBullet(Vector3 position, Vector2 velocity, int damage, float lifetime,
+        LayerMask? damageableLayersOverride = null, LayerMask? destructionLayersOverride = null)
     {
         GameObject bullet;
 
@@ -79,7 +80,7 @@ public class BulletPool : MonoBehaviour
         Bullet bulletScript = bullet.GetComponent<Bullet>();
         if (bulletScript != null)
         {
-            bulletScript.Initialize(damage, lifetime, this, velocity); // ← Pass velocity here
+            bulletScript.Initialize(damage, lifetime, this, velocity, damageableLayersOverride, destructionLayersOverride);
         }
 
         activeBullets.Add(bullet);

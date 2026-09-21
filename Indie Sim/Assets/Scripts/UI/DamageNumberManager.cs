@@ -21,11 +21,11 @@ public class DamageNumberManager : MonoBehaviour
         Instance = this;
     }
 
-    public void Spawn(Vector3 worldPosition, int damage)
+    public void Spawn(Vector3 worldPosition, int damage, bool isCrit = false)
     {
         if (popupPrefab == null || damage <= 0) return;
 
         DamageNumberPopup popup = Instantiate(popupPrefab, worldPosition, Quaternion.identity);
-        popup.Initialize(damage);
+        popup.Initialize(damage, isCrit);
     }
 }

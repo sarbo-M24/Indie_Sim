@@ -19,6 +19,10 @@ public class DamageNumberPopup : MonoBehaviour
     [Tooltip("Random horizontal offset so overlapping hits don't stack exactly on top of each other.")]
     [SerializeField] private float horizontalJitter = 0.3f;
 
+    [Header("Crit")]
+    [SerializeField] private Color critColor = new Color(1f, 0.85f, 0.1f);
+    [SerializeField] private float critScale = 1.4f;
+
     [Header("Sorting")]
     [Tooltip("TextMeshPro renders through a MeshRenderer, which isn't exposed on the TMP component itself — set it here so the number draws above floor/ground sprites instead of using whatever the prefab defaulted to.")]
     [SerializeField] private string sortingLayerName = "UI";
@@ -39,9 +43,14 @@ public class DamageNumberPopup : MonoBehaviour
         }
     }
 
-    public void Initialize(int damage)
+    public void Initialize(int damage, bool isCrit = false)
     {
-        text.text = damage.ToString();
+        text.text = isCrit ? $"{damage}!" : damage.ToString();
+        if (isCrit)
+        {
+            text.color = critColor;
+            transform.localScale *= critScale;
+        }
 
         startPos = transform.position + new Vector3(Random.Range(-horizontalJitter, horizontalJitter), 0f, 0f);
         transform.position = startPos;

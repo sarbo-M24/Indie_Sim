@@ -171,7 +171,7 @@ public class ShopUIController : MonoBehaviour
             ? $"Tier {instance.RolledTier} | {instance.RolledRarity}"
             : "Flat upgrade (no tier/rarity)";
         string burning = instance.IsBurning
-            ? $"\nBurning — {instance.BurnTimeRemaining:0.0}s left"
+            ? "\nBurning — resolves at max Tier this level, then gone"
             : "";
 
         detailText.text =

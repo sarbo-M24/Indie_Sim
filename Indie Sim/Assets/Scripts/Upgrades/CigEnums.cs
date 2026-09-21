@@ -24,18 +24,3 @@ public enum Rarity
     Rare,
     Epic
 }
-
-public enum CigEffectId
-{
-    None,
-    PrimaryCrit,
-    SecondaryCrit,
-    PrimaryBounce,
-    SecondaryBounce,
-    StompRadiusDamage,
-    StompBulletCircle,
-    DashDamageWindow,
-    DashAoe,
-    DashDeflect,
-    DashChain
-}

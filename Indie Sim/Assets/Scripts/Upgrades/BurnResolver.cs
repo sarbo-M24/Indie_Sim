@@ -2,12 +2,14 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Handles the burn action: flips a held instance to burning (maxed) and
-/// removes it the instant either its own burn timer expires or the level
-/// ends — whichever comes first, with no carryover either way. Static event
-/// + scene-local subscriber is the exact leak pattern
-/// architecture-refactor-plan-v3.md warns about — must unsubscribe in
-/// OnDisable.
+/// Handles the burn action, per UpgradeSystemSpec.md: flips a held instance
+/// to burning (maxed Tier, Rarity unchanged) for the next level only, then
+/// fully removes it the moment that level ends — not a revert to its
+/// pre-burn state, just gone. Burning is not time-based; there's no
+/// countdown, only "resolves once, then removed at the next level
+/// boundary." Static event + scene-local subscriber is the exact leak
+/// pattern architecture-refactor-plan-v3.md warns about — must unsubscribe
+/// in OnDisable.
 /// </summary>
 public class BurnResolver : MonoBehaviour
 {
@@ -34,51 +36,18 @@ public class BurnResolver : MonoBehaviour
     }
 
     /// <summary>
-    /// Burns a held cig: its effect resolves at max tier until either its
-    /// burn timer runs out or the level ends, whichever comes first — no
-    /// carryover either way. The timer is set here but only ticks once
-    /// gameplay actually resumes (see Update()).
+    /// Burns a held cig: its effect resolves at max tier (Rarity unchanged)
+    /// for the next level only, resolved by HandleLevelEnded() below — no
+    /// timer, no carryover past that level.
     /// </summary>
     public void Burn(CigInstance instance)
     {
         if (instance == null || instance.IsBurning) return;
 
         instance.IsBurning = true;
-        instance.BurnTimeRemaining = instance.Data.burnDurationSeconds;
-        CigEffectRegistry.Get(instance.Data.effectId).ApplyMaxed();
+        instance.Data.ApplyMaxed(instance.RolledRarity);
 
         Pack.Instance?.NotifyMutated();
-    }
-
-    private void Update()
-    {
-        if (Pack.Instance == null) return;
-
-        // Timer only runs while the player actually has control — not while
-        // the shop is open (Time.deltaTime keeps flowing there since the
-        // shop pauses via input-disable, not timeScale).
-        if (RoguelikeManager.Instance != null && !RoguelikeManager.Instance.GameplayInputEnabled)
-            return;
-
-        List<CigInstance> expired = null;
-        foreach (CigInstance instance in Pack.Instance.HeldCigs)
-        {
-            if (!instance.IsBurning) continue;
-
-            instance.BurnTimeRemaining -= Time.deltaTime;
-            if (instance.BurnTimeRemaining <= 0f)
-            {
-                expired ??= new List<CigInstance>();
-                expired.Add(instance);
-            }
-        }
-
-        if (expired == null) return;
-
-        foreach (CigInstance instance in expired)
-            Pack.Instance.Remove(instance); // Remove() already recomputes/syncs
-
-        Debug.Log($"[BurnResolver] Burn timer expired — removed {expired.Count} cig(s).");
     }
 
     private void HandleLevelEnded()

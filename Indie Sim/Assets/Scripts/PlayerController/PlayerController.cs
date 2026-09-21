@@ -31,10 +31,29 @@ public class PlayerController : MonoBehaviour
     [Header("Dash Trail")]
     [SerializeField] private TrailRenderer dashTrail; // Drag the Sprite Body's TrailRenderer here
 
+    [Header("Dash Deflect Upgrade")]
+    [Tooltip("Layer enemy bullets live on, checked around the player while dashing.")]
+    [SerializeField] private LayerMask enemyBulletLayer;
+    [Tooltip("Layer a deflected bullet should be able to damage (the enemy layer) once re-owned.")]
+    [SerializeField] private LayerMask deflectedBulletTargetLayer;
+    [SerializeField] private float deflectDetectionRadius = 1.2f;
+
+    [Header("Dash Damage Window Upgrade")]
+    [SerializeField] private Color dashDamageWindowTint = new Color(1f, 0.35f, 0.35f);
+
     private bool isDashing = false;
-    private bool canDash = true;
+    private int dashCharges;
+    private float dashRechargeTimer;
     private Vector2 dashDirection;
     private float dashTimeRemaining;
+
+    private PlayerStompController stompController;
+    private SpriteRenderer bodySpriteRenderer;
+    private Color bodySpriteBaseColor = Color.white;
+    private float damageWindowTimeRemaining;
+    private Coroutine damageWindowCoroutine;
+
+    private int MaxDashCharges => 1 + (Pack.Instance != null ? Pack.Instance.Stats.DashExtraCharges : 0);
 
     [Header("Recoil Knockback")]
     [SerializeField] private float knockbackDecay = 8f; // Higher = knockback fades out faster
@@ -59,6 +78,7 @@ public class PlayerController : MonoBehaviour
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+        stompController = GetComponent<PlayerStompController>();
         inputActions = new PlayerControls();
 
         inputActions.Player.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
@@ -83,10 +103,47 @@ public class PlayerController : MonoBehaviour
         enemyFilter.SetLayerMask(enemyLayer);
         enemyFilter.useLayerMask = true;
 
+        bodySpriteRenderer = GetComponentInChildren<SpriteRenderer>();
+        if (bodySpriteRenderer != null) bodySpriteBaseColor = bodySpriteRenderer.color;
+
         // ✅ NEW — start fully ready
+        dashCharges = MaxDashCharges;
+        dashRechargeTimer = 0f;
         SetDashFill(1f);
 
         if (dashTrail != null) dashTrail.emitting = false;
+    }
+
+    void Update()
+    {
+        TickDashRecharge();
+    }
+
+    /// <summary>
+    /// Chain Dash upgrade: charges recharge one at a time on a shared timer
+    /// (not gated per-dash), so extra charges let the player dash again
+    /// immediately instead of waiting out the full cooldown each time.
+    /// </summary>
+    private void TickDashRecharge()
+    {
+        int cap = MaxDashCharges;
+        if (dashCharges > cap) dashCharges = cap; // pack shrank mid-run (burn/level-clear) — clamp, don't refund
+
+        if (dashCharges < cap)
+        {
+            dashRechargeTimer -= Time.deltaTime;
+            if (dashRechargeTimer <= 0f)
+            {
+                dashCharges++;
+                dashRechargeTimer = dashCharges < cap ? dashCooldown : 0f;
+            }
+        }
+        else
+        {
+            dashRechargeTimer = 0f;
+        }
+
+        SetDashFill(dashCharges > 0 ? 1f : 1f - Mathf.Clamp01(dashRechargeTimer / dashCooldown));
     }
 
     public void SetSpeed(float newSpeed) => currentMoveSpeed = newSpeed;
@@ -106,7 +163,7 @@ public class PlayerController : MonoBehaviour
 
     private void TryDash()
     {
-        if (!gameplayInputEnabled || !canDash || isDashing || moveInput.magnitude < 0.1f)
+        if (!gameplayInputEnabled || dashCharges <= 0 || isDashing || moveInput.magnitude < 0.1f)
             return;
 
         dashDirection = moveInput.normalized;
@@ -130,10 +187,9 @@ public class PlayerController : MonoBehaviour
     private IEnumerator DashCoroutine(float maxDistance)
     {
         isDashing = true;
-        canDash = false;
+        dashCharges--;
+        if (dashRechargeTimer <= 0f) dashRechargeTimer = dashCooldown;
         dashTimeRemaining = dashDuration;
-
-        SetDashFill(0f);
 
         // Enable blur when dash starts
         if (dashBlurVolume != null) dashBlurVolume.weight = 1f;
@@ -163,6 +219,8 @@ public class PlayerController : MonoBehaviour
             rb.linearVelocity = dashDirection * dashSpeed;
             distanceTraveled += frameDistance;
 
+            TryDeflectBulletsNearby();
+
             yield return new WaitForFixedUpdate();
         }
 
@@ -175,18 +233,69 @@ public class PlayerController : MonoBehaviour
         // Stop emitting the dash trail (existing trail segments still fade out naturally)
         if (dashTrail != null) dashTrail.emitting = false;
 
-        float elapsed = 0f;
-        while (elapsed < dashCooldown)
+        ApplyDashAoe(distanceTraveled);
+        StartDashDamageWindowIfActive();
+    }
+
+    /// <summary>Dash AoE upgrade — fires on dash completion. Per spec, dash distance = the circle's diameter, so radius is half the actual distance travelled (never authored).</summary>
+    private void ApplyDashAoe(float distanceTraveled)
+    {
+        if (Pack.Instance == null || stompController == null) return;
+        PackStats stats = Pack.Instance.Stats;
+        if (stats.DashAoeDamage <= 0) return;
+
+        float radius = distanceTraveled / 2f;
+        stompController.DamageAndPushEnemies(transform.position, radius, stats.DashAoeDamage);
+    }
+
+    private void StartDashDamageWindowIfActive()
+    {
+        if (Pack.Instance == null) return;
+        PackStats stats = Pack.Instance.Stats;
+        if (stats.DashDamageWindowDuration <= 0f) return;
+
+        if (damageWindowCoroutine != null) StopCoroutine(damageWindowCoroutine);
+        damageWindowCoroutine = StartCoroutine(DashDamageWindowRoutine(stats.DashDamageWindowDuration));
+    }
+
+    /// <summary>Dash Damage Window upgrade — red tint + a timer PlayerConeShooter reads via GetDashDamageMultiplier().</summary>
+    private IEnumerator DashDamageWindowRoutine(float duration)
+    {
+        damageWindowTimeRemaining = duration;
+        if (bodySpriteRenderer != null) bodySpriteRenderer.color = dashDamageWindowTint;
+
+        while (damageWindowTimeRemaining > 0f)
         {
-            elapsed += Time.deltaTime;
-            SetDashFill(Mathf.Clamp01(elapsed / dashCooldown));
+            damageWindowTimeRemaining -= Time.deltaTime;
             yield return null;
         }
 
-        SetDashFill(1f);
-        canDash = true;
+        if (bodySpriteRenderer != null) bodySpriteRenderer.color = bodySpriteBaseColor;
+        damageWindowCoroutine = null;
     }
 
+    /// <summary>Read by PlayerConeShooter every shot — 1x outside the window, the upgrade's multiplier while it's running.</summary>
+    public float GetDashDamageMultiplier()
+    {
+        if (damageWindowTimeRemaining <= 0f || Pack.Instance == null) return 1f;
+        return Pack.Instance.Stats.DashDamageWindowMultiplier;
+    }
+
+    /// <summary>Dash Deflect upgrade — checked every dash physics step while the upgrade is held/burned.</summary>
+    private void TryDeflectBulletsNearby()
+    {
+        if (Pack.Instance == null || !Pack.Instance.Stats.DashDeflectEnabled) return;
+
+        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, deflectDetectionRadius, enemyBulletLayer);
+        foreach (Collider2D hit in hits)
+        {
+            Bullet bullet = hit.GetComponent<Bullet>();
+            if (bullet == null) continue;
+
+            Vector2 reflected = -bullet.CurrentVelocity;
+            bullet.Deflect(deflectedBulletTargetLayer, reflected);
+        }
+    }
 
     #endregion
 
@@ -262,7 +371,7 @@ public class PlayerController : MonoBehaviour
 
         if (moveInput.magnitude > 0.1f)
         {
-            Gizmos.color = canDash ? Color.green : Color.red;
+            Gizmos.color = dashCharges > 0 ? Color.green : Color.red;
             Gizmos.DrawRay(transform.position, moveInput.normalized * dashSpeed * dashDuration);
         }
     }

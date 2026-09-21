@@ -47,17 +47,22 @@ public class Pack : MonoBehaviour
         GameSession.Instance.CurrentRun.HeldCigs = new List<CigInstance>(_held);
     }
 
-    public CigInstance FindByLineage(string lineageId)
+    /// <summary>
+    /// Finds the held instance of a given lineage. Per UpgradeSystemSpec.md,
+    /// `CigData.id` alone is the lineage identity now (one asset = one
+    /// lineage) — there is no separate lineageId field.
+    /// </summary>
+    public CigInstance FindByLineage(string cigId)
     {
         foreach (CigInstance instance in _held)
-            if (instance.Data != null && instance.Data.lineageId == lineageId)
+            if (instance.Data != null && instance.Data.id == cigId)
                 return instance;
         return null;
     }
 
-    public bool CanAdd(string lineageId)
+    public bool CanAdd(string cigId)
     {
-        return FindByLineage(lineageId) != null || !IsFull;
+        return FindByLineage(cigId) != null || !IsFull;
     }
 
     /// <summary>
@@ -68,7 +73,7 @@ public class Pack : MonoBehaviour
     public bool Buy(CigInstance offer)
     {
         if (offer == null || offer.Data == null) return false;
-        if (!CanAdd(offer.Data.lineageId)) return false;
+        if (!CanAdd(offer.Data.id)) return false;
         if (CoinManager.Instance != null && !CoinManager.Instance.SpendCoins(offer.Data.cost)) return false;
 
         TryAdd(offer);
@@ -86,7 +91,7 @@ public class Pack : MonoBehaviour
     {
         if (instance == null || instance.Data == null) return false;
 
-        int existingIndex = _held.FindIndex(c => c.Data != null && c.Data.lineageId == instance.Data.lineageId);
+        int existingIndex = _held.FindIndex(c => c.Data != null && c.Data.id == instance.Data.id);
         if (existingIndex != -1)
             _held[existingIndex] = instance;
         else
@@ -95,7 +100,7 @@ public class Pack : MonoBehaviour
             _held.Add(instance);
         }
 
-        CigEffectRegistry.Get(instance.Data.effectId).Apply();
+        instance.Data.Apply(instance.RolledTier, instance.RolledRarity);
         NotifyMutated();
         return true;
     }
@@ -106,7 +111,7 @@ public class Pack : MonoBehaviour
         if (instance == null) return;
         if (_held.Remove(instance))
         {
-            CigEffectRegistry.Get(instance.Data.effectId).Remove();
+            instance.Data.Remove();
             NotifyMutated();
         }
     }
@@ -125,7 +130,7 @@ public class Pack : MonoBehaviour
         foreach (CigInstance instance in _held)
         {
             if (instance?.Data == null) continue;
-            CigEffectRegistry.Get(instance.Data.effectId).Contribute(instance, ref stats);
+            instance.Data.Contribute(instance, ref stats);
         }
         Stats = stats;
     }
@@ -155,7 +160,7 @@ public class Pack : MonoBehaviour
     [ContextMenu("DEBUG - Burn Test Cig")]
     private void DEBUG_BurnTestCig()
     {
-        CigInstance instance = debugTestCig != null ? FindByLineage(debugTestCig.lineageId) : null;
+        CigInstance instance = debugTestCig != null ? FindByLineage(debugTestCig.id) : null;
         if (instance == null)
         {
             Debug.LogWarning("[Pack] DEBUG burn — test cig not currently held.");
@@ -172,8 +177,7 @@ public class Pack : MonoBehaviour
         Debug.Log($"[Pack] {_held.Count}/{MaxSlots} held:");
         foreach (CigInstance c in _held)
         {
-            string burnInfo = c.IsBurning ? $" | BurnTimeRemaining: {c.BurnTimeRemaining:0.0}s" : "";
-            Debug.Log($"  - {c.Data.displayName} | Tier {c.RolledTier} ({c.RolledRarity}) | Burning: {c.IsBurning} | EffectiveTier: {c.EffectiveTier}{burnInfo}");
+            Debug.Log($"  - {c.Data.displayName} | Tier {c.RolledTier} ({c.RolledRarity}) | Burning: {c.IsBurning} | EffectiveTier: {c.EffectiveTier}");
         }
     }
 }

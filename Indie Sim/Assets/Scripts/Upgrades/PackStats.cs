@@ -5,11 +5,13 @@
 [System.Serializable]
 public struct PackStats
 {
-    // Crit
+    // Weapon (crit + flat damage — both granted by CritChanceCigData per weapon slot)
     public float PrimaryCritChance;
     public float PrimaryCritMultiplier;
+    public int PrimaryWeaponBonusDamage;
     public float SecondaryCritChance;
     public float SecondaryCritMultiplier;
+    public int SecondaryWeaponBonusDamage;
 
     // Bounce
     public int PrimaryBounceCount;
@@ -23,7 +25,8 @@ public struct PackStats
     // Dash
     public float DashDamageWindowDuration;
     public float DashDamageWindowMultiplier;
-    public float DashAoeRadius;
+    // No DashAoeRadius: per UpgradeSystemSpec.md, the AoE's radius is never
+    // authored — it's derived at runtime from the dash's own travel distance.
     public int DashAoeDamage;
     public bool DashDeflectEnabled;
     public int DashExtraCharges;
