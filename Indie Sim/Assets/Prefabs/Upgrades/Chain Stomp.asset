@@ -9,14 +9,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4885a5a5573b36949934b7dd5c6b8b26, type: 3}
-  m_Name: Dash Deflect
-  m_EditorClassIdentifier: Assembly-CSharp::DashDeflectCigData
-  id: 9
-  displayName: Dash Deflect
-  description: Dash Deflect
+  m_Script: {fileID: 11500000, guid: 5a2d78fb1872a2c4f8159d30469f2851, type: 3}
+  m_Name: Chain Stomp
+  m_EditorClassIdentifier: Assembly-CSharp::ChainStompCigData
+  id: 11
+  displayName: Chain Stomp
+  description: inc the number of stomps
   icon: {fileID: 21300000, guid: 9cbb01bfc336f0443adad0cda6a7de3f, type: 3}
   brand: 6
-  targetSlot: 3
+  targetSlot: 2
   hasTierRarity: 0
   cost: 10
+  extraCharges: 2

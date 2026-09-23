@@ -36,6 +36,10 @@ public class PlayerConeShooter : MonoBehaviour
     [Header("Aiming Settings")]
     [SerializeField] private float aimDeadZone = 0.01f; // Minimum distance to register aim
 
+    [Header("Bullet Bounce Upgrade")]
+    [Tooltip("Max distance a bounce chain can travel from its first hit — keeps a multi-bounce chain contained to one area instead of walking hop-by-hop across the whole map.")]
+    [SerializeField] private float maxBounceChainRange = 15f;
+
     [Header("External Component References")]
     [SerializeField] private WeaponAmmoManager ammoManager; // Handles ammo/reloading
     [SerializeField] private WeaponVFXHandler vfxHandler; // Handles all visual/audio effects
@@ -142,7 +146,7 @@ public class PlayerConeShooter : MonoBehaviour
             if (Time.time >= nextFireTime)
             {
                 FireCone(shootDirection);
-                nextFireTime = Time.time + (1f / currentWeapon.fireRate);
+                nextFireTime = Time.time + (1f / GetDynamicFireRate());
 
                 // Consume ammo
                 if (ammoManager != null)
@@ -291,6 +295,27 @@ public class PlayerConeShooter : MonoBehaviour
         return Mathf.RoundToInt((baseDamage + bonusDamage) * dashMultiplier);
     }
 
+    /// <summary>Shotgun Pellet Count upgrade — flat extra pellets added to the shotgun's base 6-pellet spread.</summary>
+    private int GetDynamicPelletCount()
+    {
+        int basePellets = 6;
+        int bonus = Pack.Instance != null ? Pack.Instance.Stats.ShotgunBonusPellets : 0;
+        return basePellets + bonus;
+    }
+
+    /// <summary>Fire Rate upgrade — % bonus per weapon slot, applied multiplicatively to the weapon's own base fire rate.</summary>
+    private float GetDynamicFireRate()
+    {
+        float baseFireRate = currentWeapon.fireRate;
+        float bonus = 0f;
+        if (Pack.Instance != null)
+        {
+            PackStats stats = Pack.Instance.Stats;
+            bonus = IsSecondaryWeapon ? stats.SecondaryFireRateBonus : stats.PrimaryFireRateBonus;
+        }
+        return baseFireRate * (1f + bonus);
+    }
+
     /// <summary>
     /// Returns the weapon's final pierce count = base (from SO) + any bonus earned this run.
     /// </summary>
@@ -356,7 +381,7 @@ public class PlayerConeShooter : MonoBehaviour
 
         for (int i = 0; i < bounceCount; i++)
         {
-            IDamageable nextTarget = FindNearestBounceTarget(currentPos, hitSoFar, out Vector3 nextPos);
+            IDamageable nextTarget = FindNearestBounceTarget(currentPos, firstHitPosition, hitSoFar, out Vector3 nextPos);
             if (nextTarget == null) break;
 
             ApplyHitDamage(nextTarget, damage, nextPos);
@@ -366,7 +391,14 @@ public class PlayerConeShooter : MonoBehaviour
         }
     }
 
-    private IDamageable FindNearestBounceTarget(Vector3 fromPosition, List<IDamageable> exclude, out Vector3 hitPosition)
+    /// <summary>
+    /// Finds the closest not-yet-hit, line-of-sight-clear enemy within
+    /// coneRange of the current hop AND within maxBounceChainRange of the
+    /// chain's original hit — the second check keeps a multi-bounce chain
+    /// contained to one area instead of letting it walk hop-by-hop across
+    /// the whole map.
+    /// </summary>
+    private IDamageable FindNearestBounceTarget(Vector3 fromPosition, Vector3 chainOrigin, List<IDamageable> exclude, out Vector3 hitPosition)
     {
         hitPosition = Vector3.zero;
         float bounceRange = currentWeapon != null ? currentWeapon.coneRange : 8f;
@@ -382,6 +414,8 @@ public class PlayerConeShooter : MonoBehaviour
             if (candidate == null || candidate.IsDead() || exclude.Contains(candidate)) continue;
 
             Vector3 candidatePos = candidate.GetGameObject().transform.position;
+            if (Vector3.Distance(chainOrigin, candidatePos) > maxBounceChainRange) continue;
+
             float distance = Vector3.Distance(fromPosition, candidatePos);
             if (distance >= closestDistance) continue;
 
@@ -486,7 +520,7 @@ public class PlayerConeShooter : MonoBehaviour
     /// </summary>
     private void FireShotgun(Vector2 direction, int damage) // ✅ Added damage parameter
     {
-        int pelletsPerShot = 6;
+        int pelletsPerShot = GetDynamicPelletCount();
         float spreadAngle = currentWeapon.GetAngleAtDistance(currentWeapon.coneRange);
 
         List<IDamageable> hitTargets = new List<IDamageable>();

@@ -149,8 +149,8 @@ public class PlayerController : MonoBehaviour
             dashRechargeTimer -= Time.deltaTime;
             if (dashRechargeTimer <= 0f)
             {
-                dashCharges++;
-                dashRechargeTimer = dashCharges < cap ? dashCooldown : 0f;
+                dashCharges = cap; // Chain Dash: the whole pool refills at once once the cooldown elapses uninterrupted
+                dashRechargeTimer = 0f;
             }
         }
         else
@@ -158,7 +158,7 @@ public class PlayerController : MonoBehaviour
             dashRechargeTimer = 0f;
         }
 
-        SetDashFill(dashCharges > 0 ? 1f : 1f - Mathf.Clamp01(dashRechargeTimer / dashCooldown));
+        SetDashFill(dashCharges >= cap ? 1f : 1f - Mathf.Clamp01(dashRechargeTimer / dashCooldown));
     }
 
     public void SetSpeed(float newSpeed) => currentMoveSpeed = newSpeed;
@@ -203,7 +203,7 @@ public class PlayerController : MonoBehaviour
     {
         isDashing = true;
         dashCharges--;
-        if (dashRechargeTimer <= 0f) dashRechargeTimer = dashCooldown;
+        dashRechargeTimer = dashCooldown; // every dash resets the shared cooldown — full regen only fires after dashCooldown seconds without another dash
         dashTimeRemaining = dashDuration;
 
         // Enable blur when dash starts

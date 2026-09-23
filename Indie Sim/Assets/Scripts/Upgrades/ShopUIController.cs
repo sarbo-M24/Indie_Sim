@@ -34,6 +34,11 @@ public class ShopUIController : MonoBehaviour
 
     private CigInstance _selectedOffer;
     private CigInstance _selectedHeld;
+    private CigInstance _pendingReplaceOffer;
+    private CigInstance _pendingReplaceConflict;
+
+    /// <summary>Fired when a Buy attempt hits a same-slot Mild/Regular brand conflict — hook for a confirmation panel. Not fired for a normal, unconflicted buy. Params: (offer, conflictingHeld).</summary>
+    public static event System.Action<CigInstance, CigInstance> OnBrandConflictDetected;
 
     private void Awake()
     {
@@ -137,6 +142,10 @@ public class ShopUIController : MonoBehaviour
     {
         if (card.BoundInstance == null) return;
 
+        // Selecting a different offer abandons any pending replace-confirmation tied to the old one.
+        _pendingReplaceOffer = null;
+        _pendingReplaceConflict = null;
+
         _selectedOffer = card.BoundInstance;
         HighlightOnly(buyCardSlots, card);
         ShowDetail(_selectedOffer);
@@ -167,9 +176,13 @@ public class ShopUIController : MonoBehaviour
         if (detailText == null || instance?.Data == null) return;
 
         CigData data = instance.Data;
-        string tierRarity = data.hasTierRarity
-            ? $"Tier {instance.RolledTier} | {instance.RolledRarity}"
-            : "Flat upgrade (no tier/rarity)";
+        string tierRarity;
+        if (data.hasTier && data.hasRarity)
+            tierRarity = $"Tier {instance.RolledTier} | {instance.RolledRarity}";
+        else if (data.hasTier)
+            tierRarity = $"Tier {instance.RolledTier}";
+        else
+            tierRarity = "Flat upgrade (no tier/rarity)";
         string burning = instance.IsBurning
             ? "\nBurning — resolves at max Tier this level, then gone"
             : "";
@@ -193,6 +206,8 @@ public class ShopUIController : MonoBehaviour
     private void ClearBuySelection()
     {
         _selectedOffer = null;
+        _pendingReplaceOffer = null;
+        _pendingReplaceConflict = null;
         HighlightOnly(buyCardSlots, null);
         if (buyButton != null) buyButton.interactable = false;
     }
@@ -215,7 +230,40 @@ public class ShopUIController : MonoBehaviour
     {
         if (_selectedOffer == null || Pack.Instance == null) return;
 
-        bool bought = Pack.Instance.Buy(_selectedOffer);
+        CigInstance conflict = Pack.Instance.GetBrandConflict(_selectedOffer.Data);
+        if (conflict != null)
+        {
+            _pendingReplaceOffer = _selectedOffer;
+            _pendingReplaceConflict = conflict;
+            OnBrandConflictDetected?.Invoke(_selectedOffer, conflict);
+            if (detailText != null)
+                detailText.text = $"Buying {_selectedOffer.Data.displayName} will replace {conflict.Data.displayName} in your pack — confirm to proceed.";
+            return;
+        }
+
+        FinishBuyAttempt(Pack.Instance.Buy(_selectedOffer));
+    }
+
+    /// <summary>Call from a confirmation panel's Confirm button to finalize a buy flagged by OnBrandConflictDetected.</summary>
+    public void ConfirmReplacePurchase()
+    {
+        if (_pendingReplaceOffer == null || Pack.Instance == null) return;
+
+        bool bought = Pack.Instance.BuyWithReplace(_pendingReplaceOffer, _pendingReplaceConflict);
+        _pendingReplaceOffer = null;
+        _pendingReplaceConflict = null;
+        FinishBuyAttempt(bought);
+    }
+
+    /// <summary>Call from a confirmation panel's Cancel button to abandon a pending replace-buy.</summary>
+    public void CancelReplacePurchase()
+    {
+        _pendingReplaceOffer = null;
+        _pendingReplaceConflict = null;
+    }
+
+    private void FinishBuyAttempt(bool bought)
+    {
         if (bought)
         {
             RefreshCoinsText();

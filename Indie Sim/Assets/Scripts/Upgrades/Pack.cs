@@ -65,16 +65,64 @@ public class Pack : MonoBehaviour
         return FindByLineage(cigId) != null || !IsFull;
     }
 
+    /// <summary>Mild and Regular are mutually exclusive per slot (for now); every other brand (Electric, etc.) is unrestricted.</summary>
+    private static bool IsExclusiveBrand(Brand brand) => brand == Brand.Mild || brand == Brand.Regular;
+
+    /// <summary>
+    /// Returns the held instance that buying `newData` would conflict with —
+    /// same targetSlot, a different lineage, and both an exclusive brand
+    /// (Mild/Regular) — or null if there's no conflict. Buying a non-exclusive
+    /// brand (Electric, etc.) never conflicts, regardless of what's held.
+    /// </summary>
+    public CigInstance GetBrandConflict(CigData newData)
+    {
+        if (newData == null || !IsExclusiveBrand(newData.brand)) return null;
+
+        foreach (CigInstance held in _held)
+        {
+            if (held?.Data == null) continue;
+            if (held.Data.id == newData.id) continue; // same lineage — replace-in-place, not a brand conflict
+            if (held.Data.targetSlot != newData.targetSlot) continue;
+            if (!IsExclusiveBrand(held.Data.brand)) continue;
+
+            return held;
+        }
+        return null;
+    }
+
     /// <summary>
     /// Spends coins, adds the offer to the pack (replacing a held instance of
     /// the same lineage in place, per the core loop), and marks it as
-    /// permanently purchased in the pool. No side effects on failure.
+    /// permanently purchased in the pool. No side effects on failure. Fails
+    /// if the offer has a same-slot brand conflict — use BuyWithReplace for that.
     /// </summary>
     public bool Buy(CigInstance offer)
     {
         if (offer == null || offer.Data == null) return false;
         if (!CanAdd(offer.Data.id)) return false;
+        if (GetBrandConflict(offer.Data) != null) return false;
         if (CoinManager.Instance != null && !CoinManager.Instance.SpendCoins(offer.Data.cost)) return false;
+
+        TryAdd(offer);
+        CigPool.Instance?.MarkPurchased(offer.Data.id);
+        return true;
+    }
+
+    /// <summary>
+    /// Buys `offer` after removing `toReplace` to free its slot for the brand
+    /// exclusivity rule (see GetBrandConflict). Checks affordability before
+    /// removing anything, so a failed purchase never destructively drops the
+    /// held cig. `toReplace` may be null, in which case this behaves like Buy().
+    /// </summary>
+    public bool BuyWithReplace(CigInstance offer, CigInstance toReplace)
+    {
+        if (offer == null || offer.Data == null) return false;
+        if (CoinManager.Instance != null && !CoinManager.Instance.HasEnoughCoins(offer.Data.cost)) return false;
+
+        if (toReplace != null) Remove(toReplace);
+        if (!CanAdd(offer.Data.id)) return false;
+
+        if (CoinManager.Instance != null) CoinManager.Instance.SpendCoins(offer.Data.cost);
 
         TryAdd(offer);
         CigPool.Instance?.MarkPurchased(offer.Data.id);

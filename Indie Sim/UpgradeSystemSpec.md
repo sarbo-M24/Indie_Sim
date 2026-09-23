@@ -16,7 +16,7 @@ This is the build spec for the Upgrade System. It supersedes the earlier "burn t
 - **Pack:** a 5-slot container of *active* upgrades. Buying a cig puts it directly into the pack, immediately active — no separate activation step.
 - **No Unlockables.** The player starts the run already owning both weapons (primary: assault rifle / machine gun; secondary: shotgun). Every cig in the game modifies something the player already has — nothing is "unlocked."
 - **No stacking of duplicate cigs.** Once a specific cig is bought, it's removed from the offer pool for the rest of the run.
-- **Category 1 brand names** (Mild, Regular, Hard, Mint, Slims, Clove, Electric) are cosmetic/flavor only for now — no mechanical exclusivity rule between them. Ignore the earlier "one brand per slot" rule entirely; it does not apply to this version.
+- **Brand exclusivity is back in effect (2026-09-23), reversing the note that used to be here.** Every cig has a `brand` (Mild, Regular, Hard, Mint, Slims, Clove, Electric) and a `targetSlot` (Primary/Secondary/Stomp/Dash), and no two cigs share the same (brand, targetSlot) pair. Owning a **Mild** or **Regular** cig blocks buying any *other* Mild/Regular cig in that same slot — buying one requires replacing the held one (see "Brand exclusivity" below). Every other brand (Electric, Hard, etc.) is unrestricted — always buyable regardless of what else is held in that slot.
 - **No Temporary/One-Level Boost cig type.** That behavior is now a property of Burn itself (see below) — every upgrade is a candidate for a one-level send-off, not just a special subset.
 - **No upgrade-driven escalation.** Difficulty scaling comes only from dungeon level (the enemy-scaling hook the architecture refactor already reserves for Phase 7 / D3). Nothing here needs a "Heat" stat or any run-scoped escalation counter — that idea from the earlier pass is fully retired.
 
@@ -49,6 +49,28 @@ Each of the catalog's base upgrades (assault rifle crit, stomp-seeks, dash-AoE, 
 
 ---
 
+## Brand exclusivity
+
+A second, independent identity axis on top of lineage (`id`): every cig also has a `brand` and a `targetSlot`, and **no two cigs share the same (brand, targetSlot) pair** — that's an authoring constraint on the assets themselves, not something enforced at runtime.
+
+- **Mild** and **Regular** are mutually exclusive within the same `targetSlot`. Owning a Mild cig for a slot blocks buying the slot's Regular cig (and vice versa) unless the player replaces the held one.
+- Every other brand (**Electric**, Hard, Mint, Slims, Clove) is unrestricted — always buyable regardless of what's already held in that slot, and can coexist alongside a held Mild or Regular in the same slot.
+- Buying a same-lineage cig you already own (a tier/rarity upgrade, see above) is never a brand conflict — that's the existing replace-in-place path, unrelated to this rule.
+- **UI flow:** attempting to buy a cig that conflicts with a held Mild/Regular in the same slot does not buy it immediately. It surfaces a warning ("buying this will replace X") with a confirm step before the purchase completes. `Pack.GetBrandConflict(CigData)` detects the conflict; `Pack.BuyWithReplace(offer, toReplace)` performs the confirmed purchase; `ShopUIController.OnBrandConflictDetected` is the hook a confirmation panel subscribes to, with `ConfirmReplacePurchase()`/`CancelReplacePurchase()` to resolve it.
+
+Current brand assignment (assigned 2026-09-23, freely adjustable per-asset in the Inspector): within each slot, the "pick one" exclusive upgrades are Mild/Regular, and the always-available ones are Electric (or, for Dash's fourth upgrade, Hard):
+
+| Slot | Mild | Regular | Electric (or other) |
+|---|---|---|---|
+| PrimaryWeapon | Crit (chance only) | Bounce + Dmg | FireRate (Electric) |
+| SecondaryWeapon | Crit (chance only) | Bounce + Dmg | FireRate (Electric), Pellet Count (Mint) |
+| Stomp | Seek | Circle | Chain Stomp (Electric) |
+| Dash | Post-Damage | AoE | Deflect (Electric), Chain Dash (Hard) |
+
+**2026-09-23 rework:** Crit and flat weapon damage used to live on the same `CritChanceCigData` asset — they're now split. `CritChanceCigData` is chance-only (tiers scale chance; rarity now boosts crit *damage*, not chance). `BulletBounceCigData` absorbed the flat-damage role (tiers + rarity scale damage; bounce count itself stays a flat, non-tiered value). New Secondary-only `ShotgunPelletCountCigData` (tiers, no rarity — `hasTier=true, hasRarity=false`) increases shotgun pellets per shot.
+
+---
+
 ## Data model
 
 ### `CigData` — abstract base `ScriptableObject`, with 8 concrete subclasses
@@ -57,9 +79,9 @@ This is the piece that was left vague last pass — "a reference to an effect" d
 Shared base fields (on the abstract `CigData`):
 - `id` — unique string, also the lineage identity (one asset = one lineage)
 - `displayName`
-- `brand` — enum, cosmetic only: Mild / Regular / Hard / Mint / Slims / Clove / Electric
+- `brand` — enum: Mild / Regular / Hard / Mint / Slims / Clove / Electric. Mechanical, not cosmetic — see "Brand exclusivity" below.
 - `targetSlot` — enum: PrimaryWeapon / SecondaryWeapon / Stomp / Dash
-- `hasTierRarity` — bool. False for the flat, one-off upgrades (e.g. "bullets bounce off enemies", "dash deflects projectiles")
+- `hasTier` / `hasRarity` — two independent bools (2026-09-23, split from the old single `hasTierRarity`). `hasTier=false` upgrades (e.g. "dash deflects projectiles") always roll Tier 1; `hasRarity=false` upgrades always roll Common and the shop never shows a rarity for them. This makes a tiers-but-no-rarity upgrade possible (e.g. Shotgun Pellet Count) without a rarity roll doing anything or appearing in the UI for it.
 
 8 concrete subclasses, each adding only the magnitude field(s) it actually needs, tagged with `[CreateAssetMenu]` so they show up individually in the Project window's Create menu:
 - `CritChanceCigData` — a crit % field, per tier. Created twice as separate assets (Primary and Secondary each get their own instance, independently tunable) — 2 of the 10 total assets.
@@ -76,8 +98,8 @@ Shared base fields (on the abstract `CigData`):
 ### `CigInstance` (runtime, not an asset)
 The Tier and Rarity a specific offer or held cig actually has. Rolled when the shop generates an offer; this — not the `CigData` asset directly — is what lives in the offer pool, the pack, and `RunStats`.
 - `cigData` — reference to the lineage's `CigData` asset
-- `tier` — int 1–4, only meaningful if `hasTierRarity`
-- `rarity` — enum Common / Uncommon / Rare / Epic, only meaningful if `hasTierRarity`
+- `tier` — int 1–4, only meaningful if `hasTier`
+- `rarity` — enum Common / Uncommon / Rare / Epic, only meaningful if `hasRarity`
 
 ### Shared rarity lookup
 One small, separate config asset (e.g. `RarityConfig`) — the **11th asset**, made once, not per-upgrade — mapping Rarity → bonus percentage: Common, Uncommon, Rare, Epic each get one field. Every `CigData` subclass's `Apply`/`ApplyMaxed` reads from this same asset rather than storing its own copy. This is the other place you'll input data, and you'll only ever do it once.
@@ -87,7 +109,7 @@ One small, separate config asset (e.g. `RarityConfig`) — the **11th asset**, m
 - `ApplyMaxed(Rarity rarity)` — called when the cig is burned. Internally uses Tier = 4, with whichever Rarity was actually bought — valid for exactly one level
 - `Remove()` — called when the level-boundary signal fires after a burn. Fully removes the effect — this is not a revert-to-previous-state, since the pre-burn version is also gone
 
-A flat cig (`hasTierRarity = false`) just has `ApplyMaxed()` call `Apply()` with the same fixed values, since there's no higher power level to jump to.
+A fully flat cig (`hasTier = false`) just has `ApplyMaxed()` call `Apply()` with the same fixed values, since there's no higher power level to jump to.
 
 ### Generalized formula (mechanic, not a balance number)
 The same additive-plus-rarity-multiplier shape applies to *whichever* numeric field an effect owns — not only damage:
@@ -128,14 +150,17 @@ Split into four pieces, not one god object — same standard already applied to 
 ### Primary weapon (assault rifle / machine gun)
 - Increased crit chance — tiers + rarities
 - Bullets bounce off enemies — flat, no tiers/rarities
+- Increased fire rate (% of base) — tiers + rarities
 
 ### Secondary weapon (shotgun)
 - Increased crit chance — tiers + rarities
 - Bullets bounce off enemies — flat, no tiers/rarities
+- Increased fire rate (% of base) — tiers + rarities
 
 ### Stomp
 - Seeks enemies in a range instead of only hitting directly under the player — tiers + rarities (range, damage)
 - Increased damage + releases a circle of bullets around the player — tiers + rarities (damage, bullet count)
+- Chain stomp — more stomp charges available per activation — flat, no tiers/rarities
 
 ### Dash
 - Deal more damage for 2 seconds after dashing (player tints red while active) — tiers + rarities (damage %, visual)
@@ -145,7 +170,7 @@ Split into four pieces, not one god object — same standard already applied to 
 
 Separately, as a base-kit (non-upgrade) behavior: the player is invulnerable and passes through enemies for the dash's duration, and a small radius pushes enemies out (no damage) the instant the dash ends.
 
-**10 catalog entries total: 6 tiered lineages, 4 flat.** (Bullets-bounce counts as two separate entries — one per weapon — since it's a distinct purchase and a distinct pack slot on each.)
+**13 catalog entries total: 8 tiered lineages, 5 flat.** (Bullets-bounce and Fire Rate each count as two separate entries — one per weapon — since each is a distinct purchase and a distinct pack slot on each.)
 
 ---
 

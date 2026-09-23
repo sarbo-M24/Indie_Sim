@@ -39,8 +39,11 @@ public class PlayerStompController : MonoBehaviour
     [SerializeField] private SpriteRenderer stompReadyOverlay; // Drag the overlay sprite here
     private PlayerController playerController;
     private PlayerControls inputActions;
-    private bool canStomp = true;
-    private Coroutine fillCoroutine;
+    private int stompCharges;
+    private float stompRechargeTimer;
+
+    /// <summary>Chain Stomp upgrade — mirrors PlayerController.MaxDashCharges.</summary>
+    private int MaxStompCharges => 1 + (Pack.Instance != null ? Pack.Instance.Stats.StompExtraCharges : 0);
 
     // Gates stomp while a menu (e.g. the upgrade store) is open.
     // Set via SetInputEnabled(), routed through RoguelikeManager.SetGameplayInputEnabled().
@@ -60,7 +63,37 @@ public class PlayerStompController : MonoBehaviour
     private void Start()
     {
         // Start fully ready
+        stompCharges = MaxStompCharges;
+        stompRechargeTimer = 0f;
         SetFill(1f);
+    }
+
+    private void Update()
+    {
+        TickStompRecharge();
+    }
+
+    /// <summary>Chain Stomp upgrade: using any charge resets the shared cooldown; the whole pool refills at once once it elapses uninterrupted (mirrors PlayerController.TickDashRecharge).</summary>
+    private void TickStompRecharge()
+    {
+        int cap = MaxStompCharges;
+        if (stompCharges > cap) stompCharges = cap; // pack shrank mid-run (burn/level-clear) — clamp, don't refund
+
+        if (stompCharges < cap)
+        {
+            stompRechargeTimer -= Time.deltaTime;
+            if (stompRechargeTimer <= 0f)
+            {
+                stompCharges = cap;
+                stompRechargeTimer = 0f;
+            }
+        }
+        else
+        {
+            stompRechargeTimer = 0f;
+        }
+
+        SetFill(stompCharges >= cap ? 1f : 1f - Mathf.Clamp01(stompRechargeTimer / stompCooldown));
     }
 
     private void TryStomp()
@@ -68,9 +101,9 @@ public class PlayerStompController : MonoBehaviour
         if (!gameplayInputEnabled) return;
 
         bool isDashing = playerController != null && playerController.IsDashing();
-        if (!canStomp || isDashing)
+        if (stompCharges <= 0 || isDashing)
         {
-            Debug.Log("Cannot stomp: on cooldown or dashing");
+            Debug.Log("Cannot stomp: no charges or dashing");
             return;
         }
 
@@ -86,9 +119,8 @@ public class PlayerStompController : MonoBehaviour
 
         PerformStomp();
 
-        // ✅ Start cooldown + UI together
-        if (fillCoroutine != null) StopCoroutine(fillCoroutine);
-        fillCoroutine = StartCoroutine(StompCooldownRoutine());
+        stompCharges--;
+        stompRechargeTimer = stompCooldown; // every stomp resets the shared cooldown — full regen only fires after stompCooldown seconds without another stomp
     }
 
     private void PerformStomp()
@@ -237,34 +269,6 @@ public class PlayerStompController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Handles both the cooldown timer AND the UI fill animation in one coroutine.
-    /// </summary>
-    private IEnumerator StompCooldownRoutine()
-    {
-        canStomp = false;
-
-        // ✅ Instantly empty the light icon
-        SetFill(0f);
-
-        float elapsed = 0f;
-
-        // ✅ Refill the icon smoothly over the cooldown duration
-        while (elapsed < stompCooldown)
-        {
-            elapsed += Time.deltaTime;
-            SetFill(Mathf.Clamp01(elapsed / stompCooldown));
-            yield return null;
-        }
-
-        // ✅ Ensure perfect full fill at the end
-        SetFill(1f);
-        canStomp = true;
-        fillCoroutine = null;
-
-        Debug.Log("Stomp ready!");
-    }
-
     private void SetFill(float amount)
     {
         if (lightIcon != null)
@@ -278,13 +282,13 @@ public class PlayerStompController : MonoBehaviour
             stompReadyOverlay.color = c;
         }
     }
-    public bool CanStomp() => gameplayInputEnabled && canStomp && !(playerController != null && playerController.IsDashing());
+    public bool CanStomp() => gameplayInputEnabled && stompCharges > 0 && !(playerController != null && playerController.IsDashing());
 
     private void OnDrawGizmosSelected()
     {
         float previewRadius = stompRadius;
 
-        Gizmos.color = canStomp ? Color.cyan : Color.gray;
+        Gizmos.color = stompCharges > 0 ? Color.cyan : Color.gray;
         Gizmos.DrawWireSphere(transform.position, previewRadius);
 
         Gizmos.color = Color.magenta;

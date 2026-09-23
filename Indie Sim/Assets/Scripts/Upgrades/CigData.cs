@@ -33,8 +33,11 @@ public abstract class CigData : ScriptableObject, IUpgradeEffect
     public Brand brand;
     public TargetSlot targetSlot;
 
-    [Tooltip("False for flat, one-off upgrades with no tier/rarity roll.")]
-    public bool hasTierRarity;
+    [Tooltip("False for a flat, always-tier-1 upgrade with no tier roll.")]
+    public bool hasTier;
+
+    [Tooltip("False if this upgrade never rolls/uses a rarity bonus, regardless of hasTier.")]
+    public bool hasRarity;
 
     [Tooltip("Coin cost to buy this cig from the shop.")]
     public int cost;

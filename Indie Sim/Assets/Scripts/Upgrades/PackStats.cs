@@ -13,14 +13,22 @@ public struct PackStats
     public float SecondaryCritMultiplier;
     public int SecondaryWeaponBonusDamage;
 
+    // Fire rate (% increase, granted by FireRateCigData per weapon slot)
+    public float PrimaryFireRateBonus;
+    public float SecondaryFireRateBonus;
+
     // Bounce
     public int PrimaryBounceCount;
     public int SecondaryBounceCount;
+
+    // Shotgun-only (secondary weapon's pellet count, granted by ShotgunPelletCountCigData)
+    public int ShotgunBonusPellets;
 
     // Stomp
     public float StompBonusRadius;
     public int StompBonusDamage;
     public int StompBulletCount;
+    public int StompExtraCharges;
 
     // Dash
     public float DashDamageWindowDuration;
