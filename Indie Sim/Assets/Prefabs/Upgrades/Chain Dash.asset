@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 123adff2f4f284841b3ebe76eb7c508a, type: 3}
+  m_Name: Chain Dash
+  m_EditorClassIdentifier: Assembly-CSharp::ChainDashCigData
+  id: 10
+  displayName: Chain Dash
+  description: Chain Dash
+  icon: {fileID: 21300000, guid: 9cbb01bfc336f0443adad0cda6a7de3f, type: 3}
+  brand: 0
+  targetSlot: 3
+  hasTierRarity: 0
+  cost: 10
+  extraCharges: 2

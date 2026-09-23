@@ -37,6 +37,10 @@ public class PlayerHealth : MonoBehaviour
     public bool IsInvincible => invincible;
     public void SetInvincible(bool value) => invincible = value;
 
+    // Separate from `invincible` (the manual debug toggle) so dashing never fights the debug key.
+    private bool isDashInvulnerable;
+    public void SetDashInvulnerable(bool value) => isDashInvulnerable = value;
+
     [Header("Death Settings")]
     public Sprite deathSprite;
     public float deathDelay = 3f;
@@ -141,7 +145,7 @@ public class PlayerHealth : MonoBehaviour
 
     public void TakeDamage(int damage, Vector3 enemyPosition)
     {
-        if (invincible)
+        if (invincible || isDashInvulnerable)
         {
             Debug.Log("[PlayerHealth] Damage ignored - invincible.");
             return;

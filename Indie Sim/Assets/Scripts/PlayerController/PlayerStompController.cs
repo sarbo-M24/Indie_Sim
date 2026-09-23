@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using System.Collections;
+using System.Collections.Generic;
 
 /// <summary>
 /// Handles the player's Stomp ability + its cooldown UI.
@@ -174,8 +175,16 @@ public class PlayerStompController : MonoBehaviour
         }
     }
 
-    /// <summary>Public so the Dash AoE upgrade (PlayerController) can reuse this wholesale.</summary>
-    public void DamageAndPushEnemies(Vector2 playerPos, float radius, int damage)
+    /// <summary>Fired on every enemy hit through this method — (damage, source label). Debug/telemetry hook only, no gameplay effect.</summary>
+    public static event System.Action<int, string> OnAoeHit;
+
+    /// <summary>
+    /// Public so the Dash AoE upgrade (PlayerController) can reuse this wholesale.
+    /// `damageOnceTracker`, when provided, limits a given IDamageable to one damage
+    /// application across repeated calls sharing the same tracker (e.g. one dash's
+    /// worth of ticks) — the push below still applies every call regardless.
+    /// </summary>
+    public void DamageAndPushEnemies(Vector2 playerPos, float radius, int damage, string sourceLabel = "Stomp", HashSet<IDamageable> damageOnceTracker = null)
     {
         Collider2D[] enemies = Physics2D.OverlapCircleAll(playerPos, radius, stompEnemyLayer);
 
@@ -189,12 +198,15 @@ public class PlayerStompController : MonoBehaviour
 
             IDamageable damageable = enemyCol.GetComponent<IDamageable>();
             bool wasAlreadyDead = damageable != null && damageable.IsDead();
-            if (damageable != null && !wasAlreadyDead)
+            bool alreadyHitThisTracker = damageOnceTracker != null && damageable != null && damageOnceTracker.Contains(damageable);
+            if (damageable != null && !wasAlreadyDead && damage > 0 && !alreadyHitThisTracker)
             {
                 damageable.TakeDamage(damage); // uses upgraded damage
 
                 if (ScoreManager.Instance != null) ScoreManager.Instance.AddDamage(damage);
                 if (DamageNumberManager.Instance != null) DamageNumberManager.Instance.Spawn(enemyCol.transform.position, damage);
+                OnAoeHit?.Invoke(damage, sourceLabel);
+                damageOnceTracker?.Add(damageable);
             }
 
             // Only physically shove things that can actually move (have a Rigidbody2D) and

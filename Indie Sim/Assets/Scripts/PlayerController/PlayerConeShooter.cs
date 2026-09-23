@@ -866,6 +866,9 @@ public class PlayerConeShooter : MonoBehaviour
         }
     }
 
+    /// <summary>Fired on every landed gun hit — (weapon, damage, isCrit). Debug/telemetry hook only, no gameplay effect.</summary>
+    public static event System.Action<WeaponData, int, bool> OnGunHit;
+
     /// <summary>
     /// Reports a landed hit to the score system and spawns a floating damage number.
     /// Called from every damage-application point (standard/shotgun/piercer).
@@ -874,6 +877,7 @@ public class PlayerConeShooter : MonoBehaviour
     {
         if (ScoreManager.Instance != null) ScoreManager.Instance.AddDamage(damage);
         if (DamageNumberManager.Instance != null) DamageNumberManager.Instance.Spawn(worldPosition, damage, isCrit);
+        OnGunHit?.Invoke(currentWeapon, damage, isCrit);
     }
 
     #endregion
@@ -996,6 +1000,10 @@ public class PlayerConeShooter : MonoBehaviour
     public WeaponData GetCurrentWeapon() => currentWeapon;
     public bool IsShooting() => wasShooting;
     public int GetTargetsInCone() => damageableTargets.Count;
+
+    /// <summary>Live per-shot damage (base + upgrade bonus + dash window multiplier), for debug display.</summary>
+    public int GetLiveDamagePerShot() => currentWeapon != null ? GetDynamicWeaponDamage() : 0;
+    public bool IsCurrentWeaponSecondary => IsSecondaryWeapon;
 
     #endregion
 }

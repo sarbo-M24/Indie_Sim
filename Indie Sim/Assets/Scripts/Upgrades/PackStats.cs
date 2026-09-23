@@ -25,9 +25,10 @@ public struct PackStats
     // Dash
     public float DashDamageWindowDuration;
     public float DashDamageWindowMultiplier;
-    // No DashAoeRadius: per UpgradeSystemSpec.md, the AoE's radius is never
-    // authored — it's derived at runtime from the dash's own travel distance.
+    // Dash AoE ticks continuously every physics step of the dash (not once at
+    // dash-end); both damage and radius scale with tier + rarity via DashAoECigData.
     public int DashAoeDamage;
+    public float DashAoeRadius;
     public bool DashDeflectEnabled;
     public int DashExtraCharges;
 

@@ -17,6 +17,9 @@ public class CigPool : MonoBehaviour
 
     private readonly List<string> _purchasedIds = new List<string>();
 
+    /// <summary>Read-only view of the full catalog, for debug tooling.</summary>
+    public IReadOnlyList<CigData> Catalog => catalog;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)

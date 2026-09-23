@@ -5630,6 +5630,7 @@ GameObject:
   - component: {fileID: 7322266951050164843}
   - component: {fileID: 3999631372541677211}
   - component: {fileID: 3782965380875294803}
+  - component: {fileID: 4349048841505405470}
   m_Layer: 0
   m_Name: Temp -Player
   m_TagString: Player
@@ -5692,6 +5693,9 @@ MonoBehaviour:
   stompVFXPrefab: {fileID: 6049408367209875220, guid: f1fe5f474aa391845ab0c1f3ffd98948, type: 3}
   stompScreenShakeDuration: 0.1
   stompScreenShakeAmp: 12
+  stompBulletSpeed: 12
+  stompBulletLifetime: 2
+  bulletPoolOverride: {fileID: 0}
   lightIcon: {fileID: 0}
   stompReadyOverlay: {fileID: 0}
 --- !u!114 &256087201219941255
@@ -5709,11 +5713,23 @@ MonoBehaviour:
   baseMoveSpeed: 4
   dashSpeed: 20
   dashDuration: 0.2
-  dashCooldown: 0.5
+  dashCooldown: 3
   invulnerableDuringDash: 1
   dashLightIcon: {fileID: 0}
   dashBlurVolume: {fileID: 0}
   dashTrail: {fileID: 1893270250333004906}
+  enemyBulletLayer:
+    serializedVersion: 2
+    m_Bits: 2048
+  deflectedBulletTargetLayer:
+    serializedVersion: 2
+    m_Bits: 128
+  deflectDetectionRadius: 1.2
+  dashDamageWindowTint: {r: 1, g: 0.35, b: 0.35, a: 1}
+  dashPassthroughRadius: 1
+  dashEndClearRadius: 1
+  showDashAoeDebugRadius: 0
+  debugDashAoeRadiusPreview: 1
   knockbackDecay: 8
   pushRadius: 0.25
   pushStr: 5
@@ -6316,6 +6332,20 @@ MonoBehaviour:
   rotationSpeed: 15
   instantRotation: 1
   isMovingParam: IsMoving
+--- !u!114 &4349048841505405470
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8485655876686838044}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce8fe50f50cbd4541a88fd8b1f6a9ab3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UpgradeDebugHUD
+  toggleKey: 282
+  startVisible: 1
 --- !u!1001 &193800281715201901
 PrefabInstance:
   m_ObjectHideFlags: 0

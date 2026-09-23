@@ -41,6 +41,17 @@ public class PlayerController : MonoBehaviour
     [Header("Dash Damage Window Upgrade")]
     [SerializeField] private Color dashDamageWindowTint = new Color(1f, 0.35f, 0.35f);
 
+    [Header("Dash Invulnerability / Pass-Through")]
+    [Tooltip("Radius around the player, checked every dash physics step, used to find enemy colliders to temporarily ignore so the player can pass through them.")]
+    [SerializeField] private float dashPassthroughRadius = 1.5f;
+    [Tooltip("Always-on (not upgrade-gated): radius enemies get pushed out of, with no damage, the instant a dash ends.")]
+    [SerializeField] private float dashEndClearRadius = 1.75f;
+
+    [Header("Dash AoE Debug Gizmo (visual only - no gameplay logic)")]
+    [SerializeField] private bool showDashAoeDebugRadius = false;
+    [Tooltip("Static preview radius for tuning in the Scene view before Play mode.")]
+    [SerializeField] private float debugDashAoeRadiusPreview = 2f;
+
     private bool isDashing = false;
     private int dashCharges;
     private float dashRechargeTimer;
@@ -48,6 +59,8 @@ public class PlayerController : MonoBehaviour
     private float dashTimeRemaining;
 
     private PlayerStompController stompController;
+    private PlayerHealth playerHealth;
+    private Collider2D playerCollider;
     private SpriteRenderer bodySpriteRenderer;
     private Color bodySpriteBaseColor = Color.white;
     private float damageWindowTimeRemaining;
@@ -79,6 +92,8 @@ public class PlayerController : MonoBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
         stompController = GetComponent<PlayerStompController>();
+        playerHealth = GetComponent<PlayerHealth>();
+        playerCollider = GetComponent<Collider2D>();
         inputActions = new PlayerControls();
 
         inputActions.Player.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
@@ -197,55 +212,94 @@ public class PlayerController : MonoBehaviour
         // Start emitting the dash trail
         if (dashTrail != null) dashTrail.emitting = true;
 
+        bool grantInvuln = invulnerableDuringDash;
+        if (grantInvuln) playerHealth?.SetDashInvulnerable(true);
+
+        HashSet<Collider2D> dashIgnoredColliders = grantInvuln ? new HashSet<Collider2D>() : null;
+        HashSet<IDamageable> dashAoeHitThisDash = new HashSet<IDamageable>();
+
         float distanceTraveled = 0f;
 
-        while (dashTimeRemaining > 0 && distanceTraveled < maxDistance)
+        try
         {
-            dashTimeRemaining -= Time.fixedDeltaTime;
+            while (dashTimeRemaining > 0 && distanceTraveled < maxDistance)
+            {
+                dashTimeRemaining -= Time.fixedDeltaTime;
 
-            float frameDistance = dashSpeed * Time.fixedDeltaTime;
-            if (distanceTraveled + frameDistance > maxDistance)
-                frameDistance = maxDistance - distanceTraveled;
+                float frameDistance = dashSpeed * Time.fixedDeltaTime;
+                if (distanceTraveled + frameDistance > maxDistance)
+                    frameDistance = maxDistance - distanceTraveled;
 
-            RaycastHit2D immediateHit = Physics2D.Raycast(
-                transform.position,
-                dashDirection,
-                frameDistance + 0.1f,
-                collisionMask
-            );
+                RaycastHit2D immediateHit = Physics2D.Raycast(
+                    transform.position,
+                    dashDirection,
+                    frameDistance + 0.1f,
+                    collisionMask
+                );
 
-            if (immediateHit.collider != null) break;
+                if (immediateHit.collider != null) break;
 
-            rb.linearVelocity = dashDirection * dashSpeed;
-            distanceTraveled += frameDistance;
+                rb.linearVelocity = dashDirection * dashSpeed;
+                distanceTraveled += frameDistance;
 
-            TryDeflectBulletsNearby();
+                TryDeflectBulletsNearby();
+                if (grantInvuln) MaintainDashPassthrough(dashIgnoredColliders);
+                TickDashAoe(dashAoeHitThisDash);
 
-            yield return new WaitForFixedUpdate();
+                yield return new WaitForFixedUpdate();
+            }
+        }
+        finally
+        {
+            isDashing = false;
+            if (rb != null) rb.linearVelocity = Vector2.zero;
+
+            // Disable blur when dash ends
+            if (dashBlurVolume != null) dashBlurVolume.weight = 0f;
+
+            // Stop emitting the dash trail (existing trail segments still fade out naturally)
+            if (dashTrail != null) dashTrail.emitting = false;
+
+            if (grantInvuln)
+            {
+                if (dashIgnoredColliders != null && playerCollider != null)
+                {
+                    foreach (Collider2D col in dashIgnoredColliders)
+                        if (col != null) Physics2D.IgnoreCollision(playerCollider, col, false);
+                }
+                playerHealth?.SetDashInvulnerable(false);
+            }
+
+            // Always-on, not upgrade-gated: clear a small radius around the player, no damage.
+            if (stompController != null)
+                stompController.DamageAndPushEnemies(transform.position, dashEndClearRadius, 0, "Dash Clear");
         }
 
-        isDashing = false;
-        rb.linearVelocity = Vector2.zero;
-
-        // Disable blur when dash ends
-        if (dashBlurVolume != null) dashBlurVolume.weight = 0f;
-
-        // Stop emitting the dash trail (existing trail segments still fade out naturally)
-        if (dashTrail != null) dashTrail.emitting = false;
-
-        ApplyDashAoe(distanceTraveled);
         StartDashDamageWindowIfActive();
     }
 
-    /// <summary>Dash AoE upgrade — fires on dash completion. Per spec, dash distance = the circle's diameter, so radius is half the actual distance travelled (never authored).</summary>
-    private void ApplyDashAoe(float distanceTraveled)
+    /// <summary>Always-on while invulnerableDuringDash: lets the player physically pass through enemy colliders for the dash's duration.</summary>
+    private void MaintainDashPassthrough(HashSet<Collider2D> dashIgnoredColliders)
+    {
+        if (playerCollider == null) return;
+
+        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, dashPassthroughRadius, enemyLayer);
+        foreach (Collider2D hit in hits)
+        {
+            if (hit == null || dashIgnoredColliders.Contains(hit)) continue;
+            Physics2D.IgnoreCollision(playerCollider, hit, true);
+            dashIgnoredColliders.Add(hit);
+        }
+    }
+
+    /// <summary>Dash AoE upgrade — ticks every dash physics step. dashAoeHitThisDash enforces damage-once-per-enemy; the push is unconditional every tick.</summary>
+    private void TickDashAoe(HashSet<IDamageable> dashAoeHitThisDash)
     {
         if (Pack.Instance == null || stompController == null) return;
         PackStats stats = Pack.Instance.Stats;
-        if (stats.DashAoeDamage <= 0) return;
+        if (stats.DashAoeRadius <= 0f) return;
 
-        float radius = distanceTraveled / 2f;
-        stompController.DamageAndPushEnemies(transform.position, radius, stats.DashAoeDamage);
+        stompController.DamageAndPushEnemies(transform.position, stats.DashAoeRadius, stats.DashAoeDamage, "Dash AoE", dashAoeHitThisDash);
     }
 
     private void StartDashDamageWindowIfActive()
@@ -373,6 +427,18 @@ public class PlayerController : MonoBehaviour
         {
             Gizmos.color = dashCharges > 0 ? Color.green : Color.red;
             Gizmos.DrawRay(transform.position, moveInput.normalized * dashSpeed * dashDuration);
+        }
+
+        if (showDashAoeDebugRadius)
+        {
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawWireSphere(transform.position, debugDashAoeRadiusPreview);
+
+            if (Application.isPlaying && Pack.Instance != null)
+            {
+                Gizmos.color = new Color(1f, 0.5f, 0f);
+                Gizmos.DrawWireSphere(transform.position, Pack.Instance.Stats.DashAoeRadius);
+            }
         }
     }
 }

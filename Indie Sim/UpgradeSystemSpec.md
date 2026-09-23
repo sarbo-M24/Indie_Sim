@@ -67,7 +67,7 @@ Shared base fields (on the abstract `CigData`):
 - `StompSeekCigData` — a range field and a damage field, per tier.
 - `StompCircleCigData` — a damage field and a bullet-count field, per tier.
 - `DashPostDamageCigData` — a damage % field per tier, plus the fixed 2-second duration.
-- `DashAoECigData` — a damage field per tier. Radius is derived at runtime from the dash's actual distance, never authored here.
+- `DashAoECigData` — a damage field and a radius field, both per tier, plus a rarity bonus that boosts both. Ticks continuously every physics step while dashing (not once at dash-end); each enemy inside the radius takes damage once per dash and is otherwise just continuously pushed out. Distinct from the always-on, non-upgrade no-damage push that clears a small radius the instant every dash ends.
 - `DashDeflectCigData` — no magnitude field at all, a pure behavior flag.
 - `ChainDashCigData` — a charge-count field per tier.
 
@@ -139,11 +139,13 @@ Split into four pieces, not one god object — same standard already applied to 
 
 ### Dash
 - Deal more damage for 2 seconds after dashing (player tints red while active) — tiers + rarities (damage %, visual)
-- Damage in an area after the dash completes; dash distance = the circle's diameter — flat, no tiers/rarities
+- A radius around the player continuously pushes enemies away and damages each one once per dash, for the dash's duration — tiers + rarities (damage, radius)
 - Deflects projectiles the player dashes into — flat, no tiers/rarities
 - Chain dash — more dashes available per activation — flat, no tiers/rarities
 
-**10 catalog entries total: 5 tiered lineages, 5 flat.** (Bullets-bounce counts as two separate entries — one per weapon — since it's a distinct purchase and a distinct pack slot on each.)
+Separately, as a base-kit (non-upgrade) behavior: the player is invulnerable and passes through enemies for the dash's duration, and a small radius pushes enemies out (no damage) the instant the dash ends.
+
+**10 catalog entries total: 6 tiered lineages, 4 flat.** (Bullets-bounce counts as two separate entries — one per weapon — since it's a distinct purchase and a distinct pack slot on each.)
 
 ---
 

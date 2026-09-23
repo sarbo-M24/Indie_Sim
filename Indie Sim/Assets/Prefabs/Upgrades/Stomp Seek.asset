@@ -10,16 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dd629037384e6434ca9de689070f4139, type: 3}
-  m_Name: New Stomp Seek Cig Data
+  m_Name: Stomp Seek
   m_EditorClassIdentifier: Assembly-CSharp::StompSeekCigData
-  id: 
-  displayName: 
-  description: 
-  icon: {fileID: 0}
+  id: 5
+  displayName: Stomp Seek
+  description: Stomps under enemies
+  icon: {fileID: 21300000, guid: 9cbb01bfc336f0443adad0cda6a7de3f, type: 3}
   brand: 0
-  targetSlot: 0
-  hasTierRarity: 0
-  cost: 0
+  targetSlot: 2
+  hasTierRarity: 1
+  cost: 10
   radiusPerTier:
   - 0
   - 1
@@ -27,4 +27,4 @@ MonoBehaviour:
   - 3
   - 4
   damagePerTier: 000000000200000005000000090000000e000000
-  rarityConfig: {fileID: 0}
+  rarityConfig: {fileID: 11400000, guid: 355dc23bb7c29ab4aa47e11175018a1d, type: 2}
