@@ -174,13 +174,47 @@ public class Pack : MonoBehaviour
     /// <summary>Rebuilds Stats from scratch from every held instance's effective tier.</summary>
     public void Recompute()
     {
+        Stats = ComputeStats(_held);
+    }
+
+    /// <summary>
+    /// Side-effect-free preview of the PackStats buying `offer` would produce.
+    /// Mirrors Buy/BuyWithReplace's pack mutation (brand-conflict removal,
+    /// same-lineage replace-in-place, full-pack rejection) on a copy of the
+    /// held list, then resolves it through the same ComputeStats as
+    /// Recompute — so the shop's stat preview can't drift from the real
+    /// result. Ignores coins: affordability doesn't change the outcome.
+    /// Returns the current Stats unchanged if the offer couldn't be added.
+    /// </summary>
+    public PackStats PreviewBuy(CigInstance offer)
+    {
+        if (offer == null || offer.Data == null) return Stats;
+
+        List<CigInstance> hypothetical = new List<CigInstance>(_held);
+
+        CigInstance conflict = GetBrandConflict(offer.Data);
+        if (conflict != null) hypothetical.Remove(conflict);
+
+        int existingIndex = hypothetical.FindIndex(c => c.Data != null && c.Data.id == offer.Data.id);
+        if (existingIndex != -1)
+            hypothetical[existingIndex] = offer;
+        else if (hypothetical.Count >= MaxSlots)
+            return Stats;
+        else
+            hypothetical.Add(offer);
+
+        return ComputeStats(hypothetical);
+    }
+
+    private static PackStats ComputeStats(IEnumerable<CigInstance> instances)
+    {
         PackStats stats = PackStats.Baseline;
-        foreach (CigInstance instance in _held)
+        foreach (CigInstance instance in instances)
         {
             if (instance?.Data == null) continue;
             instance.Data.Contribute(instance, ref stats);
         }
-        Stats = stats;
+        return stats;
     }
 
     [ContextMenu("DEBUG - Buy Test Cig")]
