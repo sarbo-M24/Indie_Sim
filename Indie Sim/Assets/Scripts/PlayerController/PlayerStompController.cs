@@ -45,6 +45,9 @@ public class PlayerStompController : MonoBehaviour
     /// <summary>Chain Stomp upgrade — mirrors PlayerController.MaxDashCharges.</summary>
     private int MaxStompCharges => 1 + (Pack.Instance != null ? Pack.Instance.Stats.StompExtraCharges : 0);
 
+    /// <summary>Chain Stomp's trade-off — its extra charges come with a longer cooldown.</summary>
+    private float StompCooldown => stompCooldown + (Pack.Instance != null ? Pack.Instance.Stats.StompCooldownPenalty : 0f);
+
     // Gates stomp while a menu (e.g. the upgrade store) is open.
     // Set via SetInputEnabled(), routed through RoguelikeManager.SetGameplayInputEnabled().
     private bool gameplayInputEnabled = true;
@@ -93,7 +96,7 @@ public class PlayerStompController : MonoBehaviour
             stompRechargeTimer = 0f;
         }
 
-        SetFill(stompCharges >= cap ? 1f : 1f - Mathf.Clamp01(stompRechargeTimer / stompCooldown));
+        SetFill(stompCharges >= cap ? 1f : 1f - Mathf.Clamp01(stompRechargeTimer / StompCooldown));
     }
 
     private void TryStomp()
@@ -120,7 +123,7 @@ public class PlayerStompController : MonoBehaviour
         PerformStomp();
 
         stompCharges--;
-        stompRechargeTimer = stompCooldown; // every stomp resets the shared cooldown — full regen only fires after stompCooldown seconds without another stomp
+        stompRechargeTimer = StompCooldown; // every stomp resets the shared cooldown — full regen only fires after StompCooldown seconds without another stomp
     }
 
     private void PerformStomp()
@@ -215,8 +218,11 @@ public class PlayerStompController : MonoBehaviour
     /// `damageOnceTracker`, when provided, limits a given IDamageable to one damage
     /// application across repeated calls sharing the same tracker (e.g. one dash's
     /// worth of ticks) — the push below still applies every call regardless.
+    /// `knockbackForce` (Dash AoE upgrade), when above 0, adds an outward impulse
+    /// on the same call an enemy takes its damage, so it lands once per tracker,
+    /// and leaves the enemy's velocity alone on later pushes so it isn't cancelled.
     /// </summary>
-    public void DamageAndPushEnemies(Vector2 playerPos, float radius, int damage, string sourceLabel = "Stomp", HashSet<IDamageable> damageOnceTracker = null)
+    public void DamageAndPushEnemies(Vector2 playerPos, float radius, int damage, string sourceLabel = "Stomp", HashSet<IDamageable> damageOnceTracker = null, float knockbackForce = 0f)
     {
         Collider2D[] enemies = Physics2D.OverlapCircleAll(playerPos, radius, stompEnemyLayer);
 
@@ -231,8 +237,10 @@ public class PlayerStompController : MonoBehaviour
             IDamageable damageable = enemyCol.GetComponent<IDamageable>();
             bool wasAlreadyDead = damageable != null && damageable.IsDead();
             bool alreadyHitThisTracker = damageOnceTracker != null && damageable != null && damageOnceTracker.Contains(damageable);
+            bool damagedThisCall = false;
             if (damageable != null && !wasAlreadyDead && damage > 0 && !alreadyHitThisTracker)
             {
+                damagedThisCall = true;
                 damageable.TakeDamage(damage); // uses upgraded damage
 
                 if (ScoreManager.Instance != null) ScoreManager.Instance.AddDamage(damage);
@@ -264,9 +272,27 @@ public class PlayerStompController : MonoBehaviour
                 }
 
                 enemyCol.transform.position = targetPosition;
-                enemyRb.linearVelocity = Vector2.zero;
+
+                if (knockbackForce <= 0f)
+                    enemyRb.linearVelocity = Vector2.zero;
+                else if (damagedThisCall)
+                    ApplyKnockback(enemyCol, enemyRb, pushDirection * knockbackForce);
             }
         }
+    }
+
+    /// <summary>Routes through EnemyMovement when present so the enemy's attack is interrupted like any other knockback.</summary>
+    private static void ApplyKnockback(Collider2D enemyCol, Rigidbody2D enemyRb, Vector2 impulse)
+    {
+        EnemyMovement movement = enemyCol.GetComponent<EnemyMovement>();
+        if (movement != null)
+        {
+            movement.ApplyKnockback(impulse);
+            return;
+        }
+
+        enemyRb.linearVelocity = Vector2.zero;
+        enemyRb.AddForce(impulse, ForceMode2D.Impulse);
     }
 
     private void SetFill(float amount)

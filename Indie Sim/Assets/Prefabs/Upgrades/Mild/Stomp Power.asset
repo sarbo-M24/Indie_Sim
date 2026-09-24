@@ -9,19 +9,25 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e4040007de22cf145bae6cee60e92e16, type: 3}
-  m_Name: Stomp Circle
-  m_EditorClassIdentifier: Assembly-CSharp::StompCircleCigData
-  id: 6
-  displayName: Stomp Circle
-  description: 'Inc the radius
-
-'
+  m_Script: {fileID: 11500000, guid: dd629037384e6434ca9de689070f4139, type: 3}
+  m_Name: Stomp Power
+  m_EditorClassIdentifier: Assembly-CSharp::StompPowerCigData
+  id: Mild-3
+  displayName: Stomp Power
+  description: Inc the Dmg and rad of the Stomp
   icon: {fileID: 21300000, guid: 9cbb01bfc336f0443adad0cda6a7de3f, type: 3}
-  brand: 1
+  brand: 0
   targetSlot: 2
-  hasTierRarity: 1
-  cost: 10
-  bulletCountPerTier: 020000000400000006000000080000000a000000
-  damagePerTier: 010000000200000005000000090000000e000000
+  hasRarity: 1
   rarityConfig: {fileID: 11400000, guid: 355dc23bb7c29ab4aa47e11175018a1d, type: 2}
+  cost: 10
+  damagePerTier:
+    tier1: 2
+    tier2: 5
+    tier3: 9
+    tier4: 14
+  radiusPerTier:
+    tier1: 1
+    tier2: 2
+    tier3: 3
+    tier4: 4

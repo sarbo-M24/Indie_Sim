@@ -82,7 +82,7 @@ public class EnemySpawner : MonoBehaviour, IDamageable
         GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
         if (playerObject != null) playerTransform = playerObject.transform;
 
-        if (explodeEffect == null) explodeEffect = FindObjectOfType<BloodSplatterEffect>(true);
+        if (explodeEffect == null) explodeEffect = FindConfiguredExplodeEffect();
 
         if (!requiresActivation) ActivateSpawner();
     }
@@ -251,10 +251,11 @@ public class EnemySpawner : MonoBehaviour, IDamageable
         if (audioSource && deathSound) audioSource.PlayOneShot(deathSound);
         OnDeath?.Invoke();
 
-        SpawnExplodeEffect();
         DropCoins();
-
         StartCoroutine(DeathSequence());
+
+        // Last, so a broken cosmetic effect can't stop the coins/death sequence above.
+        SpawnExplodeEffect();
     }
 
     private void DropCoins()
@@ -277,10 +278,27 @@ public class EnemySpawner : MonoBehaviour, IDamageable
     }
 
     /// <summary>
+    /// Fallback when explodeEffect isn't assigned: any BloodSplatterEffect in the scene that
+    /// actually has splatter prefabs, so an unconfigured one can't be picked by accident.
+    /// </summary>
+    private static BloodSplatterEffect FindConfiguredExplodeEffect()
+    {
+        foreach (BloodSplatterEffect effect in FindObjectsByType<BloodSplatterEffect>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            if (HasSplatterPrefabs(effect)) return effect;
+        return null;
+    }
+
+    private static bool HasSplatterPrefabs(BloodSplatterEffect effect) =>
+        effect.bloodSplatterPrefabs != null && effect.bloodSplatterPrefabs.Length > 0;
+
+    /// <summary>
     /// Reuses BloodSplatterEffect to stand in for a spawner "explode" animation on death.
     /// </summary>
     private void SpawnExplodeEffect()
     {
+        // The borrowed effect usually lives on an enemy, which may have died since Start.
+        if (explodeEffect == null || !HasSplatterPrefabs(explodeEffect)) explodeEffect = FindConfiguredExplodeEffect();
+
         if (explodeEffect == null)
         {
             Debug.LogWarning($"[EnemySpawner] '{gameObject.name}': No BloodSplatterEffect assigned/found. Skipping explode effect.");

@@ -9,21 +9,23 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 14ef083ac71815948862700af660cd0e, type: 3}
-  m_Name: Primary FireRate
-  m_EditorClassIdentifier: Assembly-CSharp::FireRateCigData
-  id: 12
-  displayName: Primary Firerate
-  description: Inc primary weapon Firerate
+  m_Script: {fileID: 11500000, guid: 0ed9a577dbf680e4487db183a6519d55, type: 3}
+  m_Name: Dash AOEDmg
+  m_EditorClassIdentifier: Assembly-CSharp::DashAoECigData
+  id: Regular-4
+  displayName: Dash AOE Dmg
+  description: Dashing does AOE dmg
   icon: {fileID: 21300000, guid: 9cbb01bfc336f0443adad0cda6a7de3f, type: 3}
-  brand: 6
-  targetSlot: 0
+  brand: 1
+  targetSlot: 3
+  hasRarity: 1
   hasTierRarity: 1
   cost: 10
-  fireRateBonusPerTier:
-  - 0.5
-  - 0.1
-  - 0.2
-  - 0.3
-  - 0.45
+  damagePerTier: 04000000080000000e000000140000001c000000
+  radiusPerTier:
+  - 1
+  - 1.5
+  - 2
+  - 2.5
+  - 3
   rarityConfig: {fileID: 11400000, guid: 355dc23bb7c29ab4aa47e11175018a1d, type: 2}

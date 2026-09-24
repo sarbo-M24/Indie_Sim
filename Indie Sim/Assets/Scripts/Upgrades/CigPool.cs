@@ -60,7 +60,7 @@ public class CigPool : MonoBehaviour
     private CigInstance RollInstance(CigData data)
     {
         CigInstance instance = new CigInstance { Data = data };
-        instance.RolledTier = data.hasTier ? Random.Range(1, 5) : 1; // 1-4 inclusive
+        instance.RolledTier = Random.Range(1, 5); // 1-4 inclusive — every upgrade is tiered
         instance.RolledRarity = data.hasRarity ? (Rarity)Random.Range(0, System.Enum.GetValues(typeof(Rarity)).Length) : Rarity.Common;
         return instance;
     }

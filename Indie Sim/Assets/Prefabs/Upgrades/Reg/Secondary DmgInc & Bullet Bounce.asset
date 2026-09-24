@@ -10,17 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 79522d5d82ac2c64d8949a868423a7d0, type: 3}
-  m_Name: PrimaryBullet Bounce
+  m_Name: Secondary DmgInc & Bullet Bounce
   m_EditorClassIdentifier: Assembly-CSharp::BulletBounceCigData
-  id: 3
-  displayName: Primary Bullet Bounce
+  id: Regular-2
+  displayName: Secondary Bullet Bounce
   description: Bullets Bounce
   icon: {fileID: 21300000, guid: 9cbb01bfc336f0443adad0cda6a7de3f, type: 3}
   brand: 1
-  targetSlot: 0
-  hasTier: 1
-  hasRarity: 0
+  targetSlot: 1
+  hasRarity: 1
+  rarityConfig: {fileID: 11400000, guid: 355dc23bb7c29ab4aa47e11175018a1d, type: 2}
+  hasTierRarity: 0
   cost: 10
   bounceCount: 2
-  damagePerTier: 00000000050000000a0000000f00000014000000
-  rarityConfig: {fileID: 0}

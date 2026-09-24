@@ -9,22 +9,22 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dd629037384e6434ca9de689070f4139, type: 3}
-  m_Name: Stomp Seek
-  m_EditorClassIdentifier: Assembly-CSharp::StompSeekCigData
-  id: 5
-  displayName: Stomp Seek
-  description: Stomps under enemies
+  m_Script: {fileID: 11500000, guid: 14ef083ac71815948862700af660cd0e, type: 3}
+  m_Name: Primary FireRate
+  m_EditorClassIdentifier: Assembly-CSharp::FireRateCigData
+  id: Electric-1
+  displayName: Primary Firerate
+  description: Inc primary weapon Firerate
   icon: {fileID: 21300000, guid: 9cbb01bfc336f0443adad0cda6a7de3f, type: 3}
-  brand: 0
-  targetSlot: 2
+  brand: 6
+  targetSlot: 0
+  hasRarity: 0
   hasTierRarity: 1
   cost: 10
-  radiusPerTier:
-  - 0
-  - 1
-  - 2
-  - 3
-  - 4
-  damagePerTier: 000000000200000005000000090000000e000000
+  fireRateBonusPerTier:
+  - 0.5
+  - 0.1
+  - 0.2
+  - 0.3
+  - 0.45
   rarityConfig: {fileID: 11400000, guid: 355dc23bb7c29ab4aa47e11175018a1d, type: 2}

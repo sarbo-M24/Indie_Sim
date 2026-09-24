@@ -4,7 +4,7 @@ using UnityEngine;
 /// One catalog lineage (e.g. "Primary weapon crit"), per UpgradeSystemSpec.md's
 /// data model. Abstract base holding only shared identity/classification
 /// fields — no magnitude numbers live here. Each concrete subclass (see
-/// CritChanceCigData.cs, StompSeekCigData.cs, etc.) implements IUpgradeEffect
+/// CritChanceCigData.cs, StompPowerCigData.cs, etc.) implements IUpgradeEffect
 /// directly and adds only the magnitude field(s) it actually needs, so the
 /// asset you create in the Project window *is* the effect: Sarbo fills in
 /// identity and tier-value fields together in one Inspector, nothing to
@@ -33,14 +33,23 @@ public abstract class CigData : ScriptableObject, IUpgradeEffect
     public Brand brand;
     public TargetSlot targetSlot;
 
-    [Tooltip("False for a flat, always-tier-1 upgrade with no tier roll.")]
-    public bool hasTier;
-
-    [Tooltip("False if this upgrade never rolls/uses a rarity bonus, regardless of hasTier.")]
+    // Every upgrade has 4 tiers (per the upgrade sheet), so there's no hasTier
+    // switch — CigPool always rolls 1-4. Rarity is the only optional axis.
+    [Tooltip("False if this upgrade never rolls/uses a rarity bonus.")]
     public bool hasRarity;
+
+    [Tooltip("Shared rarity -> bonus % lookup. Only read when hasRarity is true.")]
+    [SerializeField] protected RarityConfig rarityConfig;
 
     [Tooltip("Coin cost to buy this cig from the shop.")]
     public int cost;
+
+    /// <summary>The rolled rarity's bonus %, or 0 for a rarity-less upgrade or a missing config.</summary>
+    protected float GetRarityBonus(CigInstance instance)
+    {
+        if (!hasRarity || rarityConfig == null) return 0f;
+        return rarityConfig.GetBonus(instance.RolledRarity);
+    }
 
     public abstract void Apply(int tier, Rarity rarity);
     public abstract void ApplyMaxed(Rarity rarity);

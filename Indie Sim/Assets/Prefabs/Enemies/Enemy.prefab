@@ -242,7 +242,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e7ffd812323656a4295b84cffb1d50db, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BloodSplatterEffect
-  bloodSplatterPrefab: {fileID: 5654014773513644217, guid: 45e8604ccadaee34f987ecee8d2ea622, type: 3}
+  bloodSplatterPrefabs:
+  - {fileID: 1414684362247989671, guid: 45e8604ccadaee34f987ecee8d2ea622, type: 3}
 --- !u!82 &6872814849207381837
 AudioSource:
   m_ObjectHideFlags: 0

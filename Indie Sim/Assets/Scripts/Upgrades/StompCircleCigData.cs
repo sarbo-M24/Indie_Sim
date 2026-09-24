@@ -1,17 +1,16 @@
 using UnityEngine;
 
 /// <summary>
-/// Stomp gains increased damage and releases a circle of bullets around the
-/// player — tiers + rarities (damage, bullet count).
+/// Regular / Stomp: more stomp damage + stomp releases a circle of bullets.
+/// Tiers scale flat damage and bullet count; rarity scales damage only.
 /// </summary>
 [CreateAssetMenu(menuName = "Upgrades/Stomp Circle Cig")]
 public class StompCircleCigData : CigData
 {
-    [Tooltip("Bullets fired in the ring at each tier. Index 0 unused (tiers are 1-4).")]
-    [SerializeField] private int[] bulletCountPerTier = { 0, 4, 6, 8, 10 };
-    [Tooltip("Bonus stomp damage granted at each tier, before the rarity bonus. Index 0 unused.")]
-    [SerializeField] private int[] damagePerTier = { 0, 2, 5, 9, 14 };
-    [SerializeField] private RarityConfig rarityConfig;
+    [Tooltip("Flat bonus stomp damage per tier, before the rarity bonus.")]
+    [SerializeField] private TierValuesInt damagePerTier = new TierValuesInt(2, 5, 9, 14);
+    [Tooltip("Bullets fired in the ring per tier. Not affected by rarity.")]
+    [SerializeField] private TierValuesInt bulletCountPerTier = new TierValuesInt(4, 6, 8, 10);
 
     public override void Apply(int tier, Rarity rarity) { }
     public override void ApplyMaxed(Rarity rarity) { }
@@ -19,11 +18,10 @@ public class StompCircleCigData : CigData
 
     public override void Contribute(CigInstance instance, ref PackStats stats)
     {
-        int tier = Mathf.Clamp(instance.EffectiveTier, 0, bulletCountPerTier.Length - 1);
-        float rarityBonus = rarityConfig != null ? rarityConfig.GetBonus(instance.RolledRarity) : 0f;
-        int damage = damagePerTier[Mathf.Clamp(tier, 0, damagePerTier.Length - 1)];
+        int tier = instance.EffectiveTier;
+        int damage = damagePerTier.Get(tier);
 
-        stats.StompBulletCount += bulletCountPerTier[tier];
-        stats.StompBonusDamage += Mathf.RoundToInt(damage + rarityBonus * damage);
+        stats.StompBonusDamage += Mathf.RoundToInt(damage * (1f + GetRarityBonus(instance)));
+        stats.StompBulletCount += bulletCountPerTier.Get(tier);
     }
 }

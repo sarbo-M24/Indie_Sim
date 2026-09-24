@@ -176,13 +176,9 @@ public class ShopUIController : MonoBehaviour
         if (detailText == null || instance?.Data == null) return;
 
         CigData data = instance.Data;
-        string tierRarity;
-        if (data.hasTier && data.hasRarity)
-            tierRarity = $"Tier {instance.RolledTier} | {instance.RolledRarity}";
-        else if (data.hasTier)
-            tierRarity = $"Tier {instance.RolledTier}";
-        else
-            tierRarity = "Flat upgrade (no tier/rarity)";
+        string tierRarity = data.hasRarity
+            ? $"Tier {instance.RolledTier} | {instance.RolledRarity}"
+            : $"Tier {instance.RolledTier}";
         string burning = instance.IsBurning
             ? "\nBurning — resolves at max Tier this level, then gone"
             : "";

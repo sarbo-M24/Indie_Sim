@@ -1,14 +1,16 @@
 using UnityEngine;
 
 /// <summary>
-/// Chain dash — more dashes available per activation — flat, no
-/// tiers/rarities.
+/// Electric / Dash: chain dash — more dashes per activation, paid for with a
+/// longer cooldown. Tiers scale both; no rarity.
 /// </summary>
 [CreateAssetMenu(menuName = "Upgrades/Chain Dash Cig")]
 public class ChainDashCigData : CigData
 {
-    [Tooltip("Flat extra dash charges granted — this upgrade has no tiers/rarities.")]
-    [SerializeField] private int extraCharges = 1;
+    [Tooltip("Extra dash charges per tier.")]
+    [SerializeField] private TierValuesInt extraChargesPerTier = new TierValuesInt(1, 2, 3, 4);
+    [Tooltip("Seconds added to the dash cooldown, per tier.")]
+    [SerializeField] private TierValues cooldownPenaltyPerTier = new TierValues(0.25f, 0.5f, 0.75f, 1f);
 
     public override void Apply(int tier, Rarity rarity) { }
     public override void ApplyMaxed(Rarity rarity) { }
@@ -16,6 +18,8 @@ public class ChainDashCigData : CigData
 
     public override void Contribute(CigInstance instance, ref PackStats stats)
     {
-        stats.DashExtraCharges += extraCharges;
+        int tier = instance.EffectiveTier;
+        stats.DashExtraCharges += extraChargesPerTier.Get(tier);
+        stats.DashCooldownPenalty += cooldownPenaltyPerTier.Get(tier);
     }
 }

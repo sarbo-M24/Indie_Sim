@@ -1,0 +1,13 @@
+Upgrade id,Brand id,Upgrade ,Target system,Tiers,Rarity
+1,1 (Mild),Crit chance inc ,Primary,yes - inc Crit chance,yes - inc Crit Dmg by a percentage
+2,1 (Mild),Crit chance inc ,Secondary,yes - inc Crit chance,yes - inc Crit Dmg by a percentage
+3,1 (Mild),stomp - inc the dmg and rad,Stomp,yes - inc the Dmg and Rad,yes - inc Dmg by a percentage
+4,1 (Mild),More Dmg post Dash ,Dash,Yes - Inc the Dmg by a Percentage,No
+1,2 (Reg),increase primary damage and bullets bouce off enemies,Primary,Yes - inc Dmg(by a flat value) and inc the number of bullet bounces,Yes - Rarity inc the dmg by a percentage
+2,2 (Reg),increase secondary damage and  bullets bounce off enemies,Secondary,Yes - inc Dmg(by a flat value) and inc the number of bullet bounces,Yes - Rarity inc the dmg by a percentage
+3,2 (Reg),Inc Stomp Dmg and release Circle of Bullets,Stomp,Yes  - Inc the Dmg done by Stomp by a Flat value and Inc the number of bullets released,Yes - Rarity inc the dmg by a percentage
+4,2 (Reg),Dash Pushes and Dmges enemies,Dash,Yes - Inc  the amt of Dmg done and the Knockback force,Yes - Rarity inc the dmg and pushback by a percentage
+1,3 (electric),Firerate inc,Primary,Yes - ,No
+2,3 (electric),Inc in the pellets ,Secondary,Yes - ,No
+3,3 (electric),"chain stomp, more number of stomps in one go but inc cooldown",Stomp,Yes - ,No
+4,3 (electric),"chain dash,more number of dash in one go inc cooldown",Dash,Yes - ,No

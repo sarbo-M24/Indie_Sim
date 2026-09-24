@@ -5,7 +5,7 @@
 [System.Serializable]
 public struct PackStats
 {
-    // Weapon (crit + flat damage — both granted by CritChanceCigData per weapon slot)
+    // Weapon (crit from CritChanceCigData, flat damage from BulletBounceCigData, per weapon slot)
     public float PrimaryCritChance;
     public float PrimaryCritMultiplier;
     public int PrimaryWeaponBonusDamage;
@@ -29,16 +29,20 @@ public struct PackStats
     public int StompBonusDamage;
     public int StompBulletCount;
     public int StompExtraCharges;
+    public float StompCooldownPenalty; // seconds added to the stomp cooldown (Chain Stomp)
 
     // Dash
     public float DashDamageWindowDuration;
     public float DashDamageWindowMultiplier;
     // Dash AoE ticks continuously every physics step of the dash (not once at
-    // dash-end); both damage and radius scale with tier + rarity via DashAoECigData.
+    // dash-end); damage and knockback scale with tier + rarity via DashAoECigData,
+    // radius is fixed per asset.
     public int DashAoeDamage;
     public float DashAoeRadius;
+    public float DashAoeKnockback;
     public bool DashDeflectEnabled;
     public int DashExtraCharges;
+    public float DashCooldownPenalty; // seconds added to the dash cooldown (Chain Dash)
 
     public static PackStats Baseline => new PackStats
     {

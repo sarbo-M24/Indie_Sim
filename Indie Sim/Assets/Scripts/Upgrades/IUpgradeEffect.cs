@@ -2,7 +2,7 @@
 /// Lifecycle for a cig's effect, per UpgradeSystemSpec.md: Apply() on buy,
 /// ApplyMaxed() on burn (tier forced to 4, rarity unchanged), Remove() when
 /// the level-boundary signal fires after a burn. Implemented directly by
-/// each concrete CigData subclass (CritChanceCigData, StompSeekCigData,
+/// each concrete CigData subclass (CritChanceCigData, StompPowerCigData,
 /// etc.) — the asset you create in the Project window *is* the effect, per
 /// the current data model. All three are hooks for effects that need to
 /// react to those moments; every effect in this game is a pure stat

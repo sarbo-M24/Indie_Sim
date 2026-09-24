@@ -156,8 +156,8 @@ public class UpgradeDebugHUD : MonoBehaviour
         PackStats s = Pack.Instance.Stats;
         GUILayout.Label($"Primary   crit {s.PrimaryCritChance:P0} x{s.PrimaryCritMultiplier:0.00}   bonusDmg {s.PrimaryWeaponBonusDamage}   bounce {s.PrimaryBounceCount}");
         GUILayout.Label($"Secondary crit {s.SecondaryCritChance:P0} x{s.SecondaryCritMultiplier:0.00}   bonusDmg {s.SecondaryWeaponBonusDamage}   bounce {s.SecondaryBounceCount}");
-        GUILayout.Label($"Stomp     +radius {s.StompBonusRadius:0.0}   +dmg {s.StompBonusDamage}   bulletRing {s.StompBulletCount}");
-        GUILayout.Label($"Dash      aoeDmg {s.DashAoeDamage}   deflect {s.DashDeflectEnabled}   +charges {s.DashExtraCharges}");
+        GUILayout.Label($"Stomp     +radius {s.StompBonusRadius:0.0}   +dmg {s.StompBonusDamage}   bulletRing {s.StompBulletCount}   +charges {s.StompExtraCharges}   +cd {s.StompCooldownPenalty:0.00}s");
+        GUILayout.Label($"Dash      aoeDmg {s.DashAoeDamage}   knockback {s.DashAoeKnockback:0.0}   deflect {s.DashDeflectEnabled}   +charges {s.DashExtraCharges}   +cd {s.DashCooldownPenalty:0.00}s");
         GUILayout.Label($"DashWindow dur {s.DashDamageWindowDuration:0.00}s   mult x{s.DashDamageWindowMultiplier:0.00}");
     }
 

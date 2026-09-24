@@ -68,6 +68,9 @@ public class PlayerController : MonoBehaviour
 
     private int MaxDashCharges => 1 + (Pack.Instance != null ? Pack.Instance.Stats.DashExtraCharges : 0);
 
+    /// <summary>Chain Dash's trade-off — its extra charges come with a longer cooldown.</summary>
+    private float DashCooldown => dashCooldown + (Pack.Instance != null ? Pack.Instance.Stats.DashCooldownPenalty : 0f);
+
     [Header("Recoil Knockback")]
     [SerializeField] private float knockbackDecay = 8f; // Higher = knockback fades out faster
     private Vector2 knockbackVelocity = Vector2.zero;
@@ -158,7 +161,7 @@ public class PlayerController : MonoBehaviour
             dashRechargeTimer = 0f;
         }
 
-        SetDashFill(dashCharges >= cap ? 1f : 1f - Mathf.Clamp01(dashRechargeTimer / dashCooldown));
+        SetDashFill(dashCharges >= cap ? 1f : 1f - Mathf.Clamp01(dashRechargeTimer / DashCooldown));
     }
 
     public void SetSpeed(float newSpeed) => currentMoveSpeed = newSpeed;
@@ -203,7 +206,7 @@ public class PlayerController : MonoBehaviour
     {
         isDashing = true;
         dashCharges--;
-        dashRechargeTimer = dashCooldown; // every dash resets the shared cooldown — full regen only fires after dashCooldown seconds without another dash
+        dashRechargeTimer = DashCooldown; // every dash resets the shared cooldown — full regen only fires after DashCooldown seconds without another dash
         dashTimeRemaining = dashDuration;
 
         // Enable blur when dash starts
@@ -292,14 +295,14 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    /// <summary>Dash AoE upgrade — ticks every dash physics step. dashAoeHitThisDash enforces damage-once-per-enemy; the push is unconditional every tick.</summary>
+    /// <summary>Dash AoE upgrade — ticks every dash physics step. dashAoeHitThisDash enforces damage-and-knockback-once-per-enemy; the push is unconditional every tick.</summary>
     private void TickDashAoe(HashSet<IDamageable> dashAoeHitThisDash)
     {
         if (Pack.Instance == null || stompController == null) return;
         PackStats stats = Pack.Instance.Stats;
         if (stats.DashAoeRadius <= 0f) return;
 
-        stompController.DamageAndPushEnemies(transform.position, stats.DashAoeRadius, stats.DashAoeDamage, "Dash AoE", dashAoeHitThisDash);
+        stompController.DamageAndPushEnemies(transform.position, stats.DashAoeRadius, stats.DashAoeDamage, "Dash AoE", dashAoeHitThisDash, stats.DashAoeKnockback);
     }
 
     private void StartDashDamageWindowIfActive()

@@ -1,11 +1,16 @@
 using UnityEngine;
 
-/// <summary>Chain stomp — more stomp charges available — flat, no tiers/rarities.</summary>
+/// <summary>
+/// Electric / Stomp: chain stomp — more stomps per activation, paid for with
+/// a longer cooldown. Tiers scale both; no rarity.
+/// </summary>
 [CreateAssetMenu(menuName = "Upgrades/Chain Stomp Cig")]
 public class ChainStompCigData : CigData
 {
-    [Tooltip("Flat extra stomp charges granted — this upgrade has no tiers/rarities.")]
-    [SerializeField] private int extraCharges = 1;
+    [Tooltip("Extra stomp charges per tier.")]
+    [SerializeField] private TierValuesInt extraChargesPerTier = new TierValuesInt(1, 2, 3, 4);
+    [Tooltip("Seconds added to the stomp cooldown, per tier.")]
+    [SerializeField] private TierValues cooldownPenaltyPerTier = new TierValues(0.5f, 1f, 1.5f, 2f);
 
     public override void Apply(int tier, Rarity rarity) { }
     public override void ApplyMaxed(Rarity rarity) { }
@@ -13,6 +18,8 @@ public class ChainStompCigData : CigData
 
     public override void Contribute(CigInstance instance, ref PackStats stats)
     {
-        stats.StompExtraCharges += extraCharges;
+        int tier = instance.EffectiveTier;
+        stats.StompExtraCharges += extraChargesPerTier.Get(tier);
+        stats.StompCooldownPenalty += cooldownPenaltyPerTier.Get(tier);
     }
 }

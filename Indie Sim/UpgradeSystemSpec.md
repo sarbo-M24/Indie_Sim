@@ -2,6 +2,8 @@
 
 This is the build spec for the Upgrade System. It supersedes the earlier "burn to activate" design — that model is retired. Read this fully before writing any code.
 
+> **2026-09-24:** the catalog, brand table, `hasTier`, and per-upgrade tier/rarity fields below are superseded by `UpgradeDataRework.md` (built from the IGDC Demo upgrade sheet CSV). The core loop, pack, burn, and brand-exclusivity rules here still stand.
+
 ---
 
 ## Constraints for Claude Code — read this first

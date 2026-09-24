@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 5813312457878052832}
   - component: {fileID: 5901976426570299869}
   - component: {fileID: 153496713909373001}
+  - component: {fileID: 4522653868281576943}
   m_Layer: 0
   m_Name: __Pack Manager__
   m_TagString: Untagged
@@ -60,11 +61,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CigPool
   catalog:
-  - {fileID: 11400000, guid: d196b8ac014e6c64aa3e47b1b426401d, type: 2}
-  - {fileID: 11400000, guid: 22df2af550a3db643a9944a75dec56d3, type: 2}
-  - {fileID: 11400000, guid: 33da708e6de35a6408f1428ce1fa76dc, type: 2}
-  - {fileID: 11400000, guid: 4e234566ce742a445a16ce310f9b8890, type: 2}
-  - {fileID: 11400000, guid: be14680655a045144981cd1540fa8b8a, type: 2}
+  - {fileID: 11400000, guid: 98ab55afc6c3f0641b2c19d84b3d0fc9, type: 2}
+  - {fileID: 11400000, guid: c1ef01839ef1bc84c96bcc6e3d155972, type: 2}
+  - {fileID: 11400000, guid: ed8ad7c04aeedb74faa353fc18c5e25c, type: 2}
+  - {fileID: 11400000, guid: f034ff7dd0d6ffc48a1294d94d480a5e, type: 2}
+  - {fileID: 11400000, guid: 3a9e19fcfd81b064ea3341e75e6250c4, type: 2}
+  - {fileID: 11400000, guid: 02bedd2e4610fec41a7e30d6e61acdf8, type: 2}
+  - {fileID: 11400000, guid: cc5f3be32df887a4cafaa843b139f46a, type: 2}
+  - {fileID: 11400000, guid: f2886515b8e7f2a4ea31dbbb0f37d5a8, type: 2}
+  - {fileID: 11400000, guid: 6e5c7d874aed2b641ba56214bb564d8b, type: 2}
+  - {fileID: 11400000, guid: 80565d8bde0efbe4bb7e24954646161b, type: 2}
+  - {fileID: 11400000, guid: b565632d635a14d45be5eeff06813473, type: 2}
+  - {fileID: 11400000, guid: b9e316d7b451ce74bba442a26cc4dcbb, type: 2}
 --- !u!114 &153496713909373001
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -77,3 +85,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 98b58929db33f6d4d81efd8a8e3bfc76, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BurnResolver
+--- !u!114 &4522653868281576943
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7760074649991473308}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bce2eb3dd0b60e04e948384552544db3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DebugUpgradeInjector
+  grantOnStart:
+  - data: {fileID: 0}
+    tier: 0
+    rarity: 0
+    startBurning: 0

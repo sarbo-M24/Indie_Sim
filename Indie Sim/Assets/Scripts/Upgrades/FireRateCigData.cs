@@ -1,15 +1,14 @@
 using UnityEngine;
 
 /// <summary>
-/// Weapon upgrade for a single slot: % fire-rate increase, tiers + rarity.
-/// Two separate asset instances (Primary/Secondary) per `targetSlot`, same as CritChanceCigData.
+/// Electric / Primary: % fire-rate increase. Tiers only, no rarity. Still
+/// honours `targetSlot`, but the demo catalog only ships the Primary asset.
 /// </summary>
 [CreateAssetMenu(menuName = "Upgrades/Fire Rate Cig")]
 public class FireRateCigData : CigData
 {
-    [Tooltip("% fire-rate increase granted at each tier. Index 0 unused (tiers are 1-4).")]
-    [SerializeField] private float[] fireRateBonusPerTier = { 0f, 0.10f, 0.20f, 0.30f, 0.45f };
-    [SerializeField] private RarityConfig rarityConfig;
+    [Tooltip("Fire-rate increase per tier (0.1 = +10%).")]
+    [SerializeField] private TierValues fireRateBonusPerTier = new TierValues(0.10f, 0.20f, 0.30f, 0.45f);
 
     public override void Apply(int tier, Rarity rarity) { }
     public override void ApplyMaxed(Rarity rarity) { }
@@ -17,15 +16,11 @@ public class FireRateCigData : CigData
 
     public override void Contribute(CigInstance instance, ref PackStats stats)
     {
-        int tier = Mathf.Clamp(instance.EffectiveTier, 0, fireRateBonusPerTier.Length - 1);
-        float rarityBonus = rarityConfig != null ? rarityConfig.GetBonus(instance.RolledRarity) : 0f;
-
-        float tierBonus = fireRateBonusPerTier[tier];
-        float finalBonus = tierBonus + rarityBonus * tierBonus;
+        float bonus = fireRateBonusPerTier.Get(instance.EffectiveTier);
 
         if (targetSlot == TargetSlot.SecondaryWeapon)
-            stats.SecondaryFireRateBonus += finalBonus;
+            stats.SecondaryFireRateBonus += bonus;
         else
-            stats.PrimaryFireRateBonus += finalBonus;
+            stats.PrimaryFireRateBonus += bonus;
     }
 }
