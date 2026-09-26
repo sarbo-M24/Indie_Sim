@@ -12,6 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bb5a4cb3ee485c6498cc4ca83df930d8, type: 3}
   m_Name: New Shop Dialogue Set
   m_EditorClassIdentifier: Assembly-CSharp::ShopDialogueSet
+  onShopOpened:
+  - 'You come to me on my daughters Wedding ... '
   onSelected:
   - Nice choice.
   - Ooh, that one?
@@ -33,6 +35,6 @@ MonoBehaviour:
   - "Light that one up \u2014 max power, but it won't last."
   - Burning it maxes it out. Then it's gone.
   onPet:
-  - Mrrp.
-  - ...Fine. Keep going.
+  - mmm yes Gabagool..
+  - ...MEOW, keep going.
   - Purrr.
