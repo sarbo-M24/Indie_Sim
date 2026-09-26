@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: Secondary Pellet inc
   m_EditorClassIdentifier: Assembly-CSharp::ShotgunPelletCountCigData
   id: Electric-2
-  displayName: 
-  description: 
-  icon: {fileID: 0}
+  displayName: Inc Secondary Pellets
+  description: Inc Secondary Pellets
+  icon: {fileID: 1208238987, guid: 2319f4aff34a7214c95b3d501d2b023c, type: 3}
   brand: 6
   targetSlot: 1
   hasRarity: 0

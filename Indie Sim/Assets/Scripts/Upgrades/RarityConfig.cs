@@ -16,6 +16,24 @@ public class RarityConfig : ScriptableObject
     [SerializeField] private float rare = 0.25f;
     [SerializeField] private float epic = 0.50f;
 
+    [Header("Card border colours")]
+    [SerializeField] private Color commonColor = Color.white;
+    [SerializeField] private Color uncommonColor = Color.green;
+    [SerializeField] private Color rareColor = Color.blue;
+    [SerializeField] private Color epicColor = new Color(0.6f, 0.2f, 0.9f);
+
+    public Color GetColor(Rarity rarity)
+    {
+        switch (rarity)
+        {
+            case Rarity.Common: return commonColor;
+            case Rarity.Uncommon: return uncommonColor;
+            case Rarity.Rare: return rareColor;
+            case Rarity.Epic: return epicColor;
+            default: return commonColor;
+        }
+    }
+
     public float GetBonus(Rarity rarity)
     {
         switch (rarity)

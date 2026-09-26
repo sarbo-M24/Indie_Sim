@@ -5,11 +5,19 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// The shop cat. Hover shows a "Pet" cursor tooltip, click plays a Y-squish
-/// toward its feet, and a speech bubble reacts to ShopUIController's local
-/// select/purchase/purchase-failed events (shop-local chatter — deliberately
-/// not the global GameEvents bus). Subscribes on enable, unsubscribes on
-/// disable, so re-opening the shop or reloading the scene never doubles up.
+/// The shop cat. Hover shows a "Pet" cursor tooltip; click pets it — cycles
+/// the pet sprites while it hops: each hop is a Y squish toward its feet,
+/// then a lift on its Y position — and a speech bubble
+/// reacts to ShopUIController's local events (shop-local chatter —
+/// deliberately not the global GameEvents bus). Subscribes on enable,
+/// unsubscribes on disable, so re-opening the shop or reloading the scene
+/// never doubles up.
+///
+/// The bubble is always up while the shop is open: every visit starts with
+/// a greeting, and each line stays until the next one replaces it. Lines
+/// type out one character at a time; any new line (from a click on a card,
+/// cig, Buy, the cat...) cancels the one in progress and starts typing
+/// itself from scratch.
 ///
 /// Sits on the cat's root (or on the cat image itself); pointer events bubble
 /// up from catImage, the only raycast target — everything else under this
@@ -21,26 +29,36 @@ public class ShopMascot : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     [Tooltip("Falls back to ShopUIController.Instance when left empty.")]
     [SerializeField] private ShopUIController shop;
     [SerializeField] private CursorTooltip tooltip;
-    [Tooltip("The cat's Image — the hit area, and what squishes.")]
+    [Tooltip("The cat's Image — the hit area, and what squishes / bounces / swaps sprites.")]
     [SerializeField] private Image catImage;
 
     [Header("Pet")]
     [SerializeField] private string petLabel = "Pet";
-    [SerializeField] private float squishScaleY = 0.85f;
-    [SerializeField] private float squishDownDuration = 0.06f;
-    [SerializeField] private float squishReturnDuration = 0.12f;
-    [Tooltip("Ease-out-back strength on the return; 0 = no overshoot.")]
-    [SerializeField] private float squishOvershoot = 1.5f;
+    [Tooltip("Frames cycled in order while petting. The cat's resting sprite comes back afterwards.")]
+    [SerializeField] private Sprite[] petFrames;
+    [SerializeField, Min(0.01f)] private float petFrameDuration = 0.1f;
+    [Tooltip("Total length of one pet (sprite cycling + squish + bouncing).")]
+    [SerializeField, Min(0.01f)] private float petDuration = 0.6f;
+    [Tooltip("How high each bounce lifts the cat, in its parent's local units.")]
+    [SerializeField] private float bounceHeight = 12f;
+    [Tooltip("Hops per pet.")]
+    [SerializeField, Min(1)] private int bounceCount = 2;
+    [Tooltip("How much each hop's squish flattens the cat's Y scale. 0.2 = down to 80% height.")]
+    [SerializeField, Range(0f, 0.9f)] private float squishAmount = 0.2f;
+    [Tooltip("Share of each hop spent squishing on the ground before the lift.")]
+    [SerializeField, Range(0.05f, 0.95f)] private float squishPortion = 0.35f;
 
     [Header("Dialogue")]
     [SerializeField] private ShopDialogueSet dialogue;
     [SerializeField] private GameObject bubbleRoot;
     [SerializeField] private TMP_Text bubbleText;
-    [SerializeField] private float bubbleDuration = 2f;
+    [SerializeField, Min(1f)] private float charactersPerSecond = 40f;
 
     private RectTransform _catRect;
+    private Vector3 _restPosition;
     private Vector3 _restScale = Vector3.one;
-    private Coroutine _squishRoutine;
+    private Sprite _restSprite;
+    private Coroutine _petRoutine;
     private Coroutine _bubbleRoutine;
     private string _lastLine;
     private ShopUIController _subscribedShop;
@@ -53,24 +71,29 @@ public class ShopMascot : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         if (catImage != null)
         {
             _catRect = catImage.rectTransform;
-            _restScale = _catRect.localScale;
-            // Squish toward the floor, not the middle. Done at runtime (not
-            // authored in the scene) and position-compensated, so the cat
-            // doesn't visibly move; a no-op if already bottom-center.
+            // Keep the feet planted when pet frames differ in height. Done at
+            // runtime and position-compensated, so the cat doesn't visibly
+            // move; a no-op if already bottom-center in the editor.
             SetPivotKeepingPosition(_catRect, new Vector2(0.5f, 0f));
+            _restPosition = _catRect.localPosition;
+            _restScale = _catRect.localScale;
+            _restSprite = catImage.sprite;
         }
-
-        if (bubbleRoot != null) bubbleRoot.SetActive(false);
     }
 
     private void OnEnable()
     {
+        // The mascot lives under the shop panel, so enabling = the shop just opened.
+        Say(dialogue != null ? dialogue.onShopOpened : null);
+
         _subscribedShop = shop != null ? shop : ShopUIController.Instance;
         if (_subscribedShop == null) return;
 
         _subscribedShop.UpgradeSelected += HandleSelected;
         _subscribedShop.UpgradePurchased += HandlePurchased;
         _subscribedShop.PurchaseFailed += HandlePurchaseFailed;
+        _subscribedShop.PackCigSelected += HandlePackCigSelected;
+        _subscribedShop.ReshuffleFailed += HandleReshuffleFailed;
     }
 
     private void OnDisable()
@@ -80,21 +103,30 @@ public class ShopMascot : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             _subscribedShop.UpgradeSelected -= HandleSelected;
             _subscribedShop.UpgradePurchased -= HandlePurchased;
             _subscribedShop.PurchaseFailed -= HandlePurchaseFailed;
+            _subscribedShop.PackCigSelected -= HandlePackCigSelected;
+            _subscribedShop.ReshuffleFailed -= HandleReshuffleFailed;
             _subscribedShop = null;
         }
 
-        // Coroutines die with the object — reset so nothing is left mid-squish
-        // or with a stale bubble the next time the shop opens.
-        _squishRoutine = null;
+        // Coroutines die with the object — reset so nothing is left mid-pet
+        // or half-typed; the next open types a fresh greeting.
+        _petRoutine = null;
         _bubbleRoutine = null;
-        if (_catRect != null) _catRect.localScale = _restScale;
-        if (bubbleRoot != null) bubbleRoot.SetActive(false);
+        ResetCat();
+        if (bubbleText != null) bubbleText.maxVisibleCharacters = int.MaxValue;
         if (tooltip != null) tooltip.Hide(this);
     }
 
     private void HandleSelected(CigInstance offer) => Say(dialogue != null ? dialogue.onSelected : null);
     private void HandlePurchased(CigInstance offer) => Say(dialogue != null ? dialogue.onPurchased : null);
-    private void HandlePurchaseFailed(CigInstance offer) => Say(dialogue != null ? dialogue.onPurchaseFailed : null);
+    private void HandlePackCigSelected(CigInstance held) => Say(dialogue != null ? dialogue.onPackCigSelected : null);
+    private void HandleReshuffleFailed() => Say(dialogue != null ? dialogue.onNotEnoughCoins : null);
+
+    private void HandlePurchaseFailed(CigInstance offer, ShopUIController.PurchaseFailReason reason)
+    {
+        if (dialogue == null) return;
+        Say(reason == ShopUIController.PurchaseFailReason.NotEnoughCoins ? dialogue.onNotEnoughCoins : dialogue.onPackFull);
+    }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
@@ -110,62 +142,95 @@ public class ShopMascot : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     {
         if (_catRect == null || !isActiveAndEnabled) return;
 
-        // Restart from wherever the last squish left off — never stacks.
-        if (_squishRoutine != null) StopCoroutine(_squishRoutine);
-        _squishRoutine = StartCoroutine(Squish());
+        // Restart from the top — never stacks.
+        if (_petRoutine != null) StopCoroutine(_petRoutine);
+        _petRoutine = StartCoroutine(Pet());
 
-        // Pet dialogue hook: dialogue.onPet is reserved but not wired in this pass.
+        Say(dialogue != null ? dialogue.onPet : null);
     }
 
-    private IEnumerator Squish()
+    private IEnumerator Pet()
     {
-        float startY = _catRect.localScale.y;
-        float squashedY = _restScale.y * squishScaleY;
+        bool hasFrames = petFrames != null && petFrames.Length > 0;
 
         float elapsed = 0f;
-        while (elapsed < squishDownDuration)
+        while (elapsed < petDuration)
         {
             elapsed += Time.unscaledDeltaTime;
-            float t = Mathf.Clamp01(elapsed / squishDownDuration);
-            SetCatScaleY(Mathf.Lerp(startY, squashedY, 1f - (1f - t) * (1f - t)));
+            float t = Mathf.Clamp01(elapsed / petDuration);
+
+            // Each hop: squish down and back up on the ground (Y scale,
+            // toward the bottom-centre pivot = its feet), then a lift that
+            // lands back on the rest Y. Both return to rest at every hop's
+            // edges, so restarting mid-pet never pops.
+            float hop = Mathf.Min(t * bounceCount, bounceCount - 0.0001f);
+            float phase = hop - Mathf.Floor(hop);
+
+            float squish = 0f, lift = 0f;
+            if (phase < squishPortion)
+                squish = Mathf.Sin(phase / squishPortion * Mathf.PI) * squishAmount;
+            else
+                lift = Mathf.Sin((phase - squishPortion) / (1f - squishPortion) * Mathf.PI) * bounceHeight;
+
+            _catRect.localScale = new Vector3(_restScale.x, _restScale.y * (1f - squish), _restScale.z);
+            _catRect.localPosition = _restPosition + Vector3.up * lift;
+
+            if (hasFrames)
+            {
+                int frame = Mathf.FloorToInt(elapsed / petFrameDuration) % petFrames.Length;
+                if (petFrames[frame] != null) catImage.sprite = petFrames[frame];
+            }
+
             yield return null;
         }
 
-        elapsed = 0f;
-        while (elapsed < squishReturnDuration)
-        {
-            elapsed += Time.unscaledDeltaTime;
-            float t = Mathf.Clamp01(elapsed / squishReturnDuration);
-            SetCatScaleY(Mathf.LerpUnclamped(squashedY, _restScale.y, EaseOutBack(t, squishOvershoot)));
-            yield return null;
-        }
+        ResetCat();
+        _petRoutine = null;
+    }
 
+    private void ResetCat()
+    {
+        if (_catRect == null) return;
+        _catRect.localPosition = _restPosition;
         _catRect.localScale = _restScale;
-        _squishRoutine = null;
-    }
-
-    private void SetCatScaleY(float y)
-    {
-        _catRect.localScale = new Vector3(_restScale.x, y, _restScale.z);
-    }
-
-    private static float EaseOutBack(float t, float overshoot)
-    {
-        float u = t - 1f;
-        return 1f + (overshoot + 1f) * u * u * u + overshoot * u * u;
+        catImage.sprite = _restSprite;
     }
 
     private void Say(string[] pool)
     {
         string line = PickLine(pool);
-        if (line == null || bubbleRoot == null || !isActiveAndEnabled) return;
+        if (line == null || !isActiveAndEnabled) return;
 
-        if (bubbleText != null) bubbleText.text = line;
         bubbleRoot.SetActive(true);
 
-        // A new line interrupts the current one and resets the timer.
+        // A new line cancels the current one mid-type and starts over.
         if (_bubbleRoutine != null) StopCoroutine(_bubbleRoutine);
-        _bubbleRoutine = StartCoroutine(HideBubbleAfterDelay());
+        _bubbleRoutine = StartCoroutine(TypeLine(line));
+    }
+
+    // The finished line stays up until the next Say replaces it.
+    private IEnumerator TypeLine(string line)
+    {
+        if (bubbleText != null)
+        {
+            // Full text set up front and revealed via maxVisibleCharacters, so
+            // the bubble's layout/wrapping doesn't shift as letters appear
+            // and rich-text tags are never shown half-typed.
+            bubbleText.text = line;
+            bubbleText.maxVisibleCharacters = 0;
+            bubbleText.ForceMeshUpdate();
+            int total = bubbleText.textInfo.characterCount;
+
+            float elapsed = 0f;
+            while (bubbleText.maxVisibleCharacters < total)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                bubbleText.maxVisibleCharacters = Mathf.Min(total, Mathf.FloorToInt(elapsed * charactersPerSecond));
+                yield return null;
+            }
+        }
+
+        _bubbleRoutine = null;
     }
 
     private string PickLine(string[] pool)
@@ -179,13 +244,6 @@ public class ShopMascot : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             index = (index + Random.Range(1, pool.Length)) % pool.Length;
 
         return _lastLine = pool[index];
-    }
-
-    private IEnumerator HideBubbleAfterDelay()
-    {
-        yield return new WaitForSecondsRealtime(bubbleDuration);
-        if (bubbleRoot != null) bubbleRoot.SetActive(false);
-        _bubbleRoutine = null;
     }
 
     private static void SetPivotKeepingPosition(RectTransform rect, Vector2 pivot)

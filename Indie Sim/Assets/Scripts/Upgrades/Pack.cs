@@ -206,6 +206,18 @@ public class Pack : MonoBehaviour
         return ComputeStats(hypothetical);
     }
 
+    /// <summary>
+    /// Side-effect-free PackStats with `held` removed — diffed against Stats,
+    /// it gives that cig's exact contribution for the shop tooltip, through
+    /// the same ComputeStats path as Recompute.
+    /// </summary>
+    public PackStats PreviewWithout(CigInstance held)
+    {
+        List<CigInstance> hypothetical = new List<CigInstance>(_held);
+        hypothetical.Remove(held);
+        return ComputeStats(hypothetical);
+    }
+
     private static PackStats ComputeStats(IEnumerable<CigInstance> instances)
     {
         PackStats stats = PackStats.Baseline;

@@ -8,6 +8,7 @@ Scripts involved:
 |---|---|---|
 | `ShopUIController` | `Assets/Scripts/Upgrades/` | Orchestrator (modified) |
 | `UpgradeCardView` | `Assets/Scripts/Upgrades/` | One Buy offer card |
+| `PackCigView` | `Assets/Scripts/Upgrades/` | One cig held in the pack (was `CigCardUI`) |
 | `CursorTooltip` | `Assets/Scripts/UI/` | Shared cursor-following tooltip |
 | `ShopMascot` | `Assets/Scripts/Upgrades/` | The cat (pet + speech bubble) |
 | `ShopDialogueSet` | `Assets/Scripts/Upgrades/` | ScriptableObject line pools |
@@ -21,7 +22,7 @@ Scripts involved:
 
 ## 1. Offer cards (3)
 
-1. Under the shop panel's Buy area, **delete** 2 of the 5 Buy card containers (delete, don't disable). Leave the 5 Burn slots alone — they still use `CigCardUI`.
+1. Under the shop panel's Buy area, **delete** 2 of the 5 Buy card containers (delete, don't disable). Leave the 5 pack cig slots alone — see step 1b.
 2. On each of the 3 remaining Buy cards:
    - Remove the `CigCardUI` component.
    - Add `UpgradeCardView`.
@@ -39,8 +40,45 @@ Scripts involved:
    - **Offer Cards** → the 3 cards, in display order.
    - **Offer Count** → 3.
    - **Tooltip** → the `CursorTooltip` from step 2.
+   - **Rarity Config** → the shared `RarityConfig` asset (tints the tooltip by rarity).
 
 > If the Outline looks soft or misaligned at the game's pixel scale, flag it — fallback is a child Image with a 9-sliced frame sprite toggled on focus.
+
+## 1b. Two separate prefabs: Buy cards vs pack cigs
+
+The Buy offers and the cigs in the pack now use **different prefabs**:
+
+| | Buy offer card | Pack cig |
+|---|---|---|
+| Script | `UpgradeCardView` | `PackCigView` |
+| Prefab | new, e.g. `Prefabs/Upgrades/UpgradeCard.prefab` | existing `Prefabs/Upgrades/CigCard.prefab` (rename to `PackCig` if you like) |
+| Look | framed box: cig image, name, cost | just the cig image, no box |
+| Click | select, then shared **Buy** button | select (lift comes later), shows that cig's own **Burn** button |
+| Hover | tooltip: name, description, stat preview | tooltip: name, description, Tier / Rarity |
+
+`CigCardUI` was renamed to `PackCigView` and the `.meta` kept its GUID, so `CigCard.prefab` and the 5 scene slots keep the component, and the `icon` / `button` / `selectedHighlight` references stay wired. The controller's slot array was renamed `burnCardSlots` → `packCigSlots` with `FormerlySerializedAs`, so the scene's slot references carry over too.
+
+**Buy card prefab**
+1. Make one of the 3 finished offer cards (step 1) into a prefab, e.g. `UpgradeCard.prefab`, then turn the other two into instances of it.
+2. Face: background Image (the box) → cig Image + name TMP + cost TMP inside it. `UpgradeCardView` has no icon field yet. The cig image is static art for now. Say if it should show each offer's `CigData.icon`.
+
+**Pack cig prefab (`CigCard.prefab`)**
+```
+PackCig                  (RectTransform, Image = cig art, Button, PackCigView)
+├─ SelectedHighlight     (optional)
+└─ BurnButton            (Button + label, placed above the cig)
+```
+1. Remove the leftover rarity image if it's still there (the `rarityIcon` field is gone).
+2. The root Image must be a **raycast target**, since it drives both hover and click.
+3. Add a `BurnButton` child. Wire `PackCigView` → **Burn Button**. It is hidden until the cig is selected.
+4. **Icon** → the cig Image (filled from `CigData.icon`). **Button** → the root Button.
+
+**Scene**
+1. Delete the old shared **Burn** button under the shop panel. `ShopUIController.burnButton` no longer exists; every cig has its own button now.
+2. `ShopUIController` → **Rarity Icons** is gone too; nothing to rewire.
+3. Check **Pack Cig Slots** still lists the 5 slots.
+
+Behavior: click a pack cig → it's selected, its Burn button appears (only one cig selected at a time). Click it again → deselected. Burn → burns it and the list refreshes. Hover any pack cig → the tooltip shows name, description, Tier/Rarity.
 
 ## 2. Cursor tooltip (shared)
 
@@ -69,6 +107,8 @@ CursorTooltip            (RectTransform, CursorTooltip)
    - **Max Text Width** → ~420.
    - **Small Root** → `Small`, **Small Label** → `SmallLabel`.
    - **Large Root** → `Large`, **Title Text** / **Description Text** / **Stats Text** → the three TMP texts.
+   - **Background** → leave empty (uses `Panel`'s Image), or drag in a different background Image.
+   - **Tint Strength** → 0.3. How far the background blends toward the cig's rarity colour when hovering a card or pack cig. Raise for stronger colour, lower if text gets hard to read. The Image's own colour is the untinted base (used for the cat's "Pet" and the replace-confirm stats).
 6. Raycast Target: the script forces it **off** on every Graphic under the tooltip at startup, so you don't have to — but don't add anything under it that needs clicks.
 7. Starts hidden automatically.
 
@@ -87,20 +127,22 @@ Mascot                   (RectTransform, ShopMascot)
 
 2. `ShopMascot` can go on `Mascot` (root) or directly on the cat Image.
 3. Raycast Target: the script forces it **on for the cat Image only** and off for everything else under the mascot.
-4. Pivot: the script moves the cat Image's pivot to **bottom-center** at runtime (position-compensated, so it doesn't jump) so the squish goes toward its feet. You can also set it in the editor; then the runtime step is a no-op.
-5. Create the dialogue asset: Project window → **Create → Shop → Dialogue Set**. Placeholder lines come pre-filled (OnSelected, OnPurchased, OnPurchaseFailed; OnPet empty and unwired).
+4. Pivot: the script moves the cat Image's pivot to **bottom-center** at runtime (position-compensated, so it doesn't jump) so the feet stay planted when pet frames differ in size. You can also set it in the editor, in which case the runtime step does nothing.
+5. Create the dialogue asset: Project window → **Create → Shop → Dialogue Set**. It comes with placeholder lines for OnShopOpened (greeting), OnSelected, OnPurchased, OnNotEnoughCoins, OnPackFull, OnPackCigSelected and OnPet. An existing asset keeps its old OnPurchaseFailed lines, now under OnNotEnoughCoins; OnPackFull, OnPackCigSelected and OnPet fill with defaults.
 6. Wire `ShopMascot` fields:
    - **Shop** → the `ShopUIController` (optional — falls back to `ShopUIController.Instance`).
    - **Tooltip** → the `CursorTooltip`.
-   - **Cat Image** → `Cat`.
+   - **Cat Image** → `Cat`. Its sprite at startup is the resting sprite that comes back after a pet.
    - **Pet Label** → "Pet".
-   - **Squish Scale Y** 0.85, **Squish Down Duration** 0.06, **Squish Return Duration** 0.12, **Squish Overshoot** 1.5.
+   - **Pet Frames** → the 3 petting sprites, in order. **Pet Frame Duration** 0.1, **Pet Duration** 0.6 (frames loop until it ends).
+   - **Bounce Height** 12, **Bounce Count** 2 — the cat hops on its Y position during the pet.
+   - **Squish Amount** 0.2, **Squish Portion** 0.35 — before each hop the cat squishes on Y toward its feet (0.2 = down to 80% height), for the first 35% of the hop. Set Bounce Height to 0 for squish only, or Squish Amount to 0 for bounce only.
    - **Dialogue** → the Dialogue Set asset.
    - **Bubble Root** → `SpeechBubble`, **Bubble Text** → `BubbleText`.
-   - **Bubble Duration** → 2.
-7. The bubble starts hidden automatically.
+   - **Characters Per Second** → 40 (typewriter speed).
+7. The bubble is always visible while the shop is open — keep `SpeechBubble` active in the scene.
 
-Cat reactions: card clicked → OnSelected line; purchase succeeds → OnPurchased; Buy fails (not enough coins or pack full) → OnPurchaseFailed.
+Cat reactions: shop opens → OnShopOpened greeting; offer card clicked → OnSelected; purchase succeeds → OnPurchased; Buy or Reshuffle short on coins → OnNotEnoughCoins; Buy with a full pack → OnPackFull; pack cig clicked → OnPackCigSelected; cat clicked → OnPet. Lines type out one character at a time, a finished line stays up until the next one replaces it, and a new reaction cancels the line in progress and starts typing the new one.
 
 ## 4. Replace-confirm panel (brand conflict)
 
@@ -149,3 +191,5 @@ Behavior: Replace → removes the held conflicting cig and buys the new one (coi
 7. Close and reopen the shop; reload the scene; no errors, no dialogue firing twice.
 8. Hold a Mild stomp cig, try to buy a Regular stomp cig — Replace panel appears; hover stats shows the swap; Replace swaps and charges coins; Cancel leaves everything unchanged.
 9. Open the Replace panel, then close the shop — reopening shows no leftover pending replace.
+10. Click a pack cig — its Burn button appears; click another — Burn moves to it; click the same one again — Burn hides.
+11. Hover a pack cig — tooltip shows name, description, Tier/Rarity; burn a cig while hovering it — the tooltip closes.

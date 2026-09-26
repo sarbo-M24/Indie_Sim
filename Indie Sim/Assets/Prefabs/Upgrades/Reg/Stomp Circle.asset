@@ -17,12 +17,19 @@ MonoBehaviour:
   description: 'Inc the radius
 
 '
-  icon: {fileID: 21300000, guid: 9cbb01bfc336f0443adad0cda6a7de3f, type: 3}
+  icon: {fileID: 1208238987, guid: 2319f4aff34a7214c95b3d501d2b023c, type: 3}
   brand: 1
   targetSlot: 2
   hasRarity: 1
-  hasTierRarity: 1
-  cost: 10
-  bulletCountPerTier: 020000000400000006000000080000000a000000
-  damagePerTier: 010000000200000005000000090000000e000000
   rarityConfig: {fileID: 11400000, guid: 355dc23bb7c29ab4aa47e11175018a1d, type: 2}
+  cost: 10
+  damagePerTier:
+    tier1: 2
+    tier2: 5
+    tier3: 9
+    tier4: 14
+  bulletCountPerTier:
+    tier1: 4
+    tier2: 6
+    tier3: 8
+    tier4: 10

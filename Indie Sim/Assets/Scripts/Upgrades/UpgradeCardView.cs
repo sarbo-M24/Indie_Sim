@@ -6,12 +6,13 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// One Buy-offer card in the shop. Shows only the offer's name and cost,
+/// One Buy-offer card in the shop. Shows the offer's name, cost, cig art and
+/// a rarity-coloured border (colours from the shared RarityConfig),
 /// reports pointer enter/exit/click up to ShopUIController, and animates its
 /// own scale + border when the controller tells it its focus state. Cards
 /// never reference each other — the controller owns which card is focused.
 /// A fixed pool sits in the scene (never instantiated at runtime), same
-/// convention as CigCardUI, which still drives the Burn slots.
+/// convention as PackCigView, which drives the held-cig slots.
 ///
 /// Scale is tweened on localScale only (layout groups size by rect, not
 /// scale, so this never fights the layout), always from the current scale,
@@ -27,8 +28,17 @@ public class UpgradeCardView : MonoBehaviour, IPointerEnterHandler, IPointerExit
     [SerializeField] private Button button;
     [Tooltip("Existing click-to-select highlight (select-then-Buy flow). Independent of the hover border.")]
     [SerializeField] private GameObject selectedHighlight;
+    [Tooltip("Child Image showing the offer's cig art (CigData.icon).")]
+    [SerializeField] private Image cigIcon;
 
-    [Header("Border (Outline on the background Image only)")]
+    [Header("Rarity border")]
+    [Tooltip("Child Border Image. Left at 0 alpha in the scene; shown in the rolled rarity's colour on Populate.")]
+    [SerializeField] private Image rarityBorder;
+    [Tooltip("Same shared RarityConfig asset the CigData assets use — source of the rarity colours.")]
+    [SerializeField] private RarityConfig rarityConfig;
+
+    [Header("Hover border (Outline on the background child Image only)")]
+    [Tooltip("The separate Background child Image — not the root, which has no Image.")]
     [SerializeField] private Image background;
     [SerializeField] private Color borderColor = Color.white;
     [SerializeField] private Vector2 borderDistance = new Vector2(3f, -3f);
@@ -89,7 +99,28 @@ public class UpgradeCardView : MonoBehaviour, IPointerEnterHandler, IPointerExit
         if (nameText != null) nameText.text = data != null ? data.displayName : string.Empty;
         if (costText != null) costText.text = data != null ? data.cost.ToString() : string.Empty;
 
+        if (cigIcon != null)
+        {
+            cigIcon.sprite = data != null ? data.icon : null;
+            cigIcon.enabled = cigIcon.sprite != null;
+        }
+
+        ApplyRarityBorder(instance);
         SetSelected(false);
+    }
+
+    /// <summary>
+    /// Border shows at full alpha in the rolled rarity's colour. Rarity-less
+    /// upgrades (hasRarity false) keep it at 0 alpha — they have no rarity to show.
+    /// </summary>
+    private void ApplyRarityBorder(CigInstance instance)
+    {
+        if (rarityBorder == null) return;
+
+        bool show = instance.Data != null && instance.Data.hasRarity && rarityConfig != null;
+        Color c = show ? rarityConfig.GetColor(instance.RolledRarity) : rarityBorder.color;
+        c.a = show ? 1f : 0f;
+        rarityBorder.color = c;
     }
 
     /// <summary>Hides the card — used when there are fewer offers than cards.</summary>

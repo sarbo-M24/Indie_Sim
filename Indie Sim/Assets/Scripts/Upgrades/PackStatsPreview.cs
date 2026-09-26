@@ -76,4 +76,39 @@ public static class PackStatsPreview
         }
         return lines;
     }
+
+    /// <summary>
+    /// One "Label: +delta" line per stat that differs — what a held cig adds
+    /// on its own. `without` is the pack minus that cig (Pack.PreviewWithout),
+    /// `with` is the live Stats. Deltas reuse each stat's own unit (%, s, x).
+    /// </summary>
+    public static List<string> BuildContributionLines(PackStats without, PackStats with)
+    {
+        List<string> lines = new List<string>();
+        foreach (Entry entry in Entries)
+        {
+            float from = entry.Read(without);
+            float to = entry.Read(with);
+            if (Mathf.Approximately(from, to)) continue;
+
+            lines.Add($"{entry.Label}: {FormatDelta(entry, from, to)}");
+        }
+        return lines;
+    }
+
+    private static string FormatDelta(Entry entry, float from, float to)
+    {
+        // On/Off has no magnitude — just show the state the cig puts it in.
+        if (entry.Format == (Func<float, string>)OnOff) return OnOff(to);
+
+        float delta = to - from;
+        string sign = delta < 0f ? "-" : "+";
+        float size = Mathf.Abs(delta);
+
+        // BonusPercent / PlusSeconds already prefix "+"; strip it so the sign isn't doubled.
+        string magnitude = entry.Format(size).TrimStart('+');
+        if (entry.Format == (Func<float, string>)Multiplier) magnitude = $"{size:0.##}x";
+
+        return sign + magnitude;
+    }
 }

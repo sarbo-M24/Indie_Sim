@@ -20,6 +20,10 @@ using TMPro;
 /// position needs tracking. The panel's own VerticalLayoutGroup +
 /// ContentSizeFitter (Preferred/Preferred) size it; this script only caps
 /// each text's preferred width at maxTextWidth so long text wraps.
+///
+/// ShowLarge takes an optional tint (e.g. a cig's rarity colour): the
+/// background blends only tintStrength of the way toward it, so it stays
+/// light and the text readable. No tint = the background's authored colour.
 /// </summary>
 public class CursorTooltip : MonoBehaviour
 {
@@ -31,6 +35,12 @@ public class CursorTooltip : MonoBehaviour
     [SerializeField] private Vector2 cursorOffset = new Vector2(20f, 20f);
     [Tooltip("Widest any text line may get before it wraps, in canvas units.")]
     [SerializeField] private float maxTextWidth = 420f;
+
+    [Header("Background tint")]
+    [Tooltip("The Image to tint. Defaults to the Panel's own Image.")]
+    [SerializeField] private Image background;
+    [Tooltip("How far the background moves toward the tint colour. 0 = no tint, 1 = full colour.")]
+    [SerializeField, Range(0f, 1f)] private float tintStrength = 0.3f;
 
     [Header("Small mode")]
     [SerializeField] private GameObject smallRoot;
@@ -46,6 +56,7 @@ public class CursorTooltip : MonoBehaviour
     private RectTransform _canvasRect;
     private object _owner;
     private bool _initialized;
+    private Color _baseBackgroundColor = Color.white;
 
     public bool IsShowing => _owner != null;
 
@@ -67,6 +78,8 @@ public class CursorTooltip : MonoBehaviour
         _initialized = true;
 
         if (panel == null) panel = (RectTransform)transform;
+        if (background == null) background = panel.GetComponent<Image>();
+        if (background != null) _baseBackgroundColor = background.color;
 
         Canvas canvas = GetComponentInParent<Canvas>(true);
         _rootCanvas = canvas != null ? canvas.rootCanvas : null;
@@ -83,15 +96,17 @@ public class CursorTooltip : MonoBehaviour
     {
         BeginShow();
         SetMode(Mode.Small);
+        SetTint(null);
         SetText(smallLabel, label);
         Open(owner);
     }
 
-    /// <summary>Large mode: header, description, and an optional stat block (null/empty hides it).</summary>
-    public void ShowLarge(object owner, string title, string description, string stats)
+    /// <summary>Large mode: header, description, an optional stat block (null/empty hides it), and an optional background tint (null = untinted).</summary>
+    public void ShowLarge(object owner, string title, string description, string stats, Color? tint = null)
     {
         BeginShow();
         SetMode(Mode.Large);
+        SetTint(tint);
         SetText(titleText, title);
         SetText(descriptionText, description);
         SetText(statsText, stats);
@@ -130,6 +145,19 @@ public class CursorTooltip : MonoBehaviour
     {
         if (smallRoot != null) smallRoot.SetActive(mode == Mode.Small);
         if (largeRoot != null) largeRoot.SetActive(mode == Mode.Large);
+    }
+
+    private void SetTint(Color? tint)
+    {
+        if (background == null) return;
+
+        Color color = _baseBackgroundColor;
+        if (tint.HasValue)
+        {
+            color = Color.Lerp(_baseBackgroundColor, tint.Value, tintStrength);
+            color.a = _baseBackgroundColor.a; // tint the hue only — keep the authored transparency
+        }
+        background.color = color;
     }
 
     private void SetText(TMP_Text text, string value)
