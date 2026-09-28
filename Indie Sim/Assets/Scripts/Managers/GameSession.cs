@@ -11,6 +11,9 @@ public class GameSession : MonoBehaviour
     public RunStats CurrentRun { get; private set; } = new RunStats();
     public PersistentStats Persistent { get; private set; }
 
+    /// <summary>Slot/profile save files (save-system-spec.md). Built in Awake by SaveBootstrap.</summary>
+    public SaveService Saves { get; private set; }
+
     // Guards EndRun() against double-invocation (D2: death and boss-defeat
     // both route into it). Cleared by StartNewRun().
     private bool _runEnding;
@@ -24,6 +27,7 @@ public class GameSession : MonoBehaviour
         }
 
         Instance = this;
+        Saves = SaveBootstrap.Create(this);
         Persistent = SaveSystem.Load();
     }
 
