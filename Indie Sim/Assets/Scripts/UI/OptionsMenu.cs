@@ -7,6 +7,8 @@ public class OptionsMenu : MonoBehaviour
     [SerializeField] private GameObject pauseOverlay; // Optional dark overlay when paused
     [SerializeField] private SettingsPanel settingsPanel; // Opened by the pause menu's Settings button
     [SerializeField] private ControlsPanel controlsPanel; // Opened by the pause menu's Controls button
+    [Tooltip("Shown by Exit to Main Menu: progress since the last checkpoint is lost. Built by Tools/Save/Build Save & Exit + Quit Warning.")]
+    [SerializeField] private ConfirmDialog quitWarning;
 
     [Header("Scene Management")]
     [SerializeField] private string mainMenuSceneName = "MainMenu"; // Name of your main menu scene
@@ -24,7 +26,6 @@ public class OptionsMenu : MonoBehaviour
     public System.Action OnGamePaused;
     public System.Action OnGameResumed;
     public System.Action OnSoundToggled;
-    public System.Action OnRetryLevel;
     public System.Action OnExitToMainMenu;
 
     private void Start()
@@ -51,6 +52,7 @@ public class OptionsMenu : MonoBehaviour
 
         if (settingsPanel != null) settingsPanel.gameObject.SetActive(false);
         if (controlsPanel != null) controlsPanel.gameObject.SetActive(false);
+        if (quitWarning != null) quitWarning.Close();
 
         // Update UI elements
         UpdateSoundButtonDisplay();
@@ -111,6 +113,7 @@ public class OptionsMenu : MonoBehaviour
 
         isGamePaused = false;
         PauseController.SetFrozen(this, false);
+        if (quitWarning != null) quitWarning.Close();
         // Hide options menu
         if (optionsPanel != null)
         {
@@ -174,27 +177,21 @@ public class OptionsMenu : MonoBehaviour
     }
 
     /// <summary>
-    /// Restart the current level/scene
-    /// </summary>
-    public void RetryLevel()
-    {
-        Debug.Log("Retrying Level...");
-
-        // Trigger event before reloading
-        OnRetryLevel?.Invoke();
-
-        // Resume time before reloading scene
-        PauseController.ResetAll();
-
-        // The dungeon clears in place — there's no separate "level" scene to
-        // reload, so restarting the level means restarting the run (D2).
-        GameManager.Instance.RetryRun();
-    }
-
-    /// <summary>
-    /// Exit to main menu
+    /// Exit to main menu — after a warning, since a mid-level quit saves
+    /// nothing: the run resumes from its last checkpoint (save-system-spec.md §4).
     /// </summary>
     public void ExitToMainMenu()
+    {
+        if (quitWarning == null)
+        {
+            ConfirmedExitToMainMenu();
+            return;
+        }
+
+        quitWarning.Open("Quit to the main menu?\nProgress since your last checkpoint will be lost.", ConfirmedExitToMainMenu);
+    }
+
+    private void ConfirmedExitToMainMenu()
     {
         Debug.Log("Exiting to Main Menu...");
 
@@ -204,9 +201,8 @@ public class OptionsMenu : MonoBehaviour
         // Resume time before changing scenes
         PauseController.ResetAll();
 
-        // Return to main menu — funnels through ReturnToMainMenu() so the
-        // abandoned run is folded into lifetime stats (D2 abort path).
-        GameManager.Instance.ReturnToMainMenu();
+        // Not a run end: no write, the run stays active at its last checkpoint.
+        GameManager.Instance.QuitToMainMenu();
     }
 
     #endregion
@@ -267,11 +263,16 @@ public class OptionsMenu : MonoBehaviour
     // Pause action (Esc / Start) lives in the always-on UI map, so it also resumes.
     // Input blocking, cursor and gamepad focus while open are the panel's
     // GamepadMenuPanel's job (added in InitializeOptionsMenu).
-    private void OnEnable() => InputManager.Controls.UI.Pause.performed += OnPausePressed;
+    private void OnEnable()
+    {
+        InputManager.Controls.UI.Pause.performed += OnPausePressed;
+        InputManager.Controls.UI.Cancel.performed += OnCancelPressed;
+    }
 
     private void OnDisable()
     {
         InputManager.Controls.UI.Pause.performed -= OnPausePressed;
+        InputManager.Controls.UI.Cancel.performed -= OnCancelPressed;
 
         // Destroyed while paused (scene change) — don't leave the freeze behind.
         PauseController.SetFrozen(this, false);
@@ -286,7 +287,21 @@ public class OptionsMenu : MonoBehaviour
         // This press is closing Settings/Controls (back to the pause menu), not resuming.
         if (TabbedMenuPanel.BlocksPauseInput) return;
 
+        // Esc / Start with the quit warning up backs out of it, not the pause
+        // menu. Esc is also Cancel, which may have closed it first this frame.
+        if (quitWarning != null && (quitWarning.IsOpen || quitWarning.ClosedFrame == Time.frameCount))
+        {
+            if (quitWarning.IsOpen) quitWarning.Answer(false);
+            return;
+        }
+
         ToggleOptionsMenu();
+    }
+
+    // B / Esc backs out of the quit warning.
+    private void OnCancelPressed(UnityEngine.InputSystem.InputAction.CallbackContext ctx)
+    {
+        if (quitWarning != null && quitWarning.IsOpen) quitWarning.Answer(false);
     }
 
     #endregion

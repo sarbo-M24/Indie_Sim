@@ -6,7 +6,7 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// 4A + 4B acceptance checks for SaveService and the real sections, runnable from Tools/Save/Run Self-Test
+/// 4A–4C acceptance checks for SaveService, the real sections and Continue targeting, runnable from Tools/Save/Run Self-Test
 /// (no Play mode needed). Works in a throwaway temp folder with its own test
 /// sections — never touches real saves or GameSession.
 /// </summary>
@@ -84,6 +84,9 @@ public static class SaveSelfTest
             RealSectionsRoundTrip();
             UnknownContentIdSkipped();
             RemovedRealSectionLoadsDefault();
+
+            // 4C — Continue targeting.
+            ContinueTargeting();
         }
         catch (Exception e)
         {
@@ -404,6 +407,42 @@ public static class SaveSelfTest
         Check(s.Saves.LoadActiveSlot() == LoadResult.Loaded, "4B: load with run.economy removed");
         Check(s.Run.CurrentCoins == 0 && s.Run.MaxCoins == 0 && s.Run.CurrentDungeonLevel == 4,
             "4B: removed section loads its defaults, the rest still restore");
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  4C — Continue
+    // ─────────────────────────────────────────────────────────────────
+
+    private static void ContinueTargeting()
+    {
+        for (int i = 0; i < SaveService.SlotCount; i++) DeleteAllFiles(i);
+
+        SaveService service = NewService(out _, out TestSlotSection slot);
+        Check(service.FindContinueSlot() == SaveService.NoSlot, "4C: Continue hidden on a fresh install");
+
+        // Slot 0 then slot 2 get active runs; slot 2 is written last.
+        slot.Name = "Older";
+        service.SetActiveSlot(0);
+        service.WriteActiveSlot();
+        System.Threading.Thread.Sleep(30);
+        slot.Name = "Newer";
+        service.SetActiveSlot(2);
+        service.WriteActiveSlot();
+        Check(service.FindContinueSlot() == 2, "4C: with two active slots, Continue targets the most recently written");
+
+        // Slot 2's run dies — Continue falls back to slot 0.
+        System.Threading.Thread.Sleep(30);
+        service.WriteActiveSlotWipingRun();
+        Check(service.FindContinueSlot() == 0, "4C: Continue skips a slot whose run ended, even if it's newest");
+
+        // A corrupted slot never qualifies.
+        File.WriteAllText(SlotFile(1), "garbage");
+        Check(service.FindContinueSlot() == 0, "4C: Continue ignores corrupted slots");
+
+        // Every run ended — Continue hides.
+        service.SetActiveSlot(0);
+        service.WriteActiveSlotWipingRun();
+        Check(service.FindContinueSlot() == SaveService.NoSlot, "4C: Continue hidden after every slot's run has ended");
     }
 
     private static void DeleteAllFiles(int index)

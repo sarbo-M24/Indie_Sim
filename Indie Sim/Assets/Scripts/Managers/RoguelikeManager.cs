@@ -137,9 +137,58 @@ public class RoguelikeManager : MonoBehaviour
         if (AmmoManager == null)
             Debug.LogError("[RoguelikeManager] WeaponAmmoManager not found in scene!");
 
+        bool resumeInStore = SeedFromRun();
+        AmmoManager.InitialiseAmmo(weaponInventory.GetAllWeapons());
+
+        // Resumed in the store — including the one before the boss.
+        if (resumeInStore)
+        {
+            StartCoroutine(OpenStoreOnResume());
+            return;
+        }
+
+        // Resumed past the last dungeon (checkpoint written on leaving the
+        // pre-boss store): the "next dungeon" is the boss fight.
+        if (dungeonsClearedCount >= roomsTillBoss)
+        {
+            LoadBossLevel();
+            return;
+        }
+
         GenerateNewDungeon();
         UpdateSpawnerDifficulty();
-        AmmoManager.InitialiseAmmo(weaponInventory.GetAllWeapons());
+    }
+
+    // Resume (save-system-spec.md §4): the progression counters come from
+    // GameSession.CurrentRun. A fresh run's defaults (0 cleared, LevelStart)
+    // give the same starting values as before. currentLevel is cleared + 1
+    // while in a dungeon and == cleared while in the store after it.
+    private bool SeedFromRun()
+    {
+        if (GameSession.Instance == null) return false;
+
+        RunStats run = GameSession.Instance.CurrentRun;
+        bool inStore = run.ResumePoint == RunResumePoint.Store;
+        dungeonsClearedCount = run.DungeonsClearedThisRun;
+        dungeonSizeIncrement = run.DungeonSizeIncrement;
+        currentLevel = inStore ? dungeonsClearedCount : dungeonsClearedCount + 1;
+
+        if (dungeonsClearedCount > 0)
+            Debug.Log($"[RoguelikeManager] Resumed run — cleared {dungeonsClearedCount}, level {currentLevel}, size +{dungeonSizeIncrement}, {(inStore ? "in the store" : "fresh dungeon")}.");
+        return inStore;
+    }
+
+    // Resumed in the store: no dungeon is generated — the store opens as if
+    // the previous one was just cleared, and its Continue generates the next.
+    // A frame late so Pack/CigPool/CoinManager have rehydrated first.
+    private IEnumerator OpenStoreOnResume()
+    {
+        yield return null;
+
+        if (ShopUIController.Instance != null)
+            ShopUIController.Instance.Open();
+        else
+            ContinueDungeon();
     }
 
     private int GetCurrentDungeonSize()
@@ -154,8 +203,17 @@ public class RoguelikeManager : MonoBehaviour
         dungeonGenerator.GenerateNewMap(dungeonSize);
         Debug.Log($"[RoguelikeManager] Dungeon generation complete!");
 
+        IsDungeonActive = true;
         StartDungeonTimer();
     }
+
+    /// <summary>
+    /// True from GenerateNewDungeon until that dungeon is completed. False in
+    /// the store — including a store resumed from a save, where no dungeon was
+    /// generated and the teleporter still sits at its scene position (the
+    /// player's spawn), so it must not count as clearing anything.
+    /// </summary>
+    public bool IsDungeonActive { get; private set; }
 
     #region Dungeon Timer
 
@@ -244,6 +302,13 @@ public class RoguelikeManager : MonoBehaviour
 
     public void CompleteDungeon()
     {
+        if (!IsDungeonActive)
+        {
+            Debug.LogWarning("[RoguelikeManager] CompleteDungeon() ignored — no dungeon is in progress (store / resumed store).");
+            return;
+        }
+        IsDungeonActive = false;
+
         // Dungeon cleared via teleporter — freeze the timer until the next
         // dungeon is generated (ContinueDungeon -> GenerateNewDungeon).
         StopDungeonTimer();
@@ -263,19 +328,18 @@ public class RoguelikeManager : MonoBehaviour
 
         ClearCurrentDungeon();
 
-        // Removes anything burned during the shop that just ended, on both
-        // the shop path and the boss path.
+        // Removes anything burned during the shop that just ended, before
+        // every store visit (the pre-boss one included).
         LevelBoundary.RaiseLevelEnded();
 
-        if (dungeonsClearedCount >= roomsTillBoss)
-        {
-            Debug.Log($"<color=red>[RoguelikeManager] {roomsTillBoss} dungeons cleared — heading to Boss!</color>");
-            LoadBossLevel();
-            return;
-        }
-
+        // The store opens after every dungeon, the last one included — its
+        // Continue (ContinueDungeon) then heads to the boss instead.
         if (ShopUIController.Instance != null)
+        {
+            // Save point: entering the store (resumes here after a crash / Save & Exit).
+            GameManager.Instance.SaveCheckpoint(RunResumePoint.Store);
             ShopUIController.Instance.Open();
+        }
         else
             ContinueDungeon(); // no shop wired into this scene yet — don't block play
     }
@@ -304,6 +368,19 @@ public class RoguelikeManager : MonoBehaviour
     {
         PauseController.ResetAll();
 
+        if (dungeonsClearedCount >= roomsTillBoss)
+        {
+            Debug.Log($"<color=red>[RoguelikeManager] {roomsTillBoss} dungeons cleared — heading to Boss!</color>");
+
+            // Save point: leaving the store. Resuming this checkpoint routes
+            // straight back to the boss (see Start).
+            if (GameSession.Instance != null)
+                GameManager.Instance.SaveCheckpoint(RunResumePoint.LevelStart);
+
+            LoadBossLevel();
+            return;
+        }
+
         currentLevel++;
         Debug.Log($"[RoguelikeManager] Level increased to {currentLevel}!");
 
@@ -312,6 +389,13 @@ public class RoguelikeManager : MonoBehaviour
         {
             dungeonSizeIncrement++;
             Debug.Log($"[RoguelikeManager] Size increased! Difficulty: {dungeonSizeIncrement}");
+        }
+
+        // Save point: leaving the store — resumes as a fresh layout of this dungeon.
+        if (GameSession.Instance != null)
+        {
+            GameSession.Instance.CurrentRun.DungeonSizeIncrement = dungeonSizeIncrement;
+            GameManager.Instance.SaveCheckpoint(RunResumePoint.LevelStart);
         }
 
         playerTransform.position = Vector3.zero;

@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
@@ -15,20 +16,72 @@ public class MainMenu : MonoBehaviour
     [SerializeField] private SettingsPanel settingsPanel;
     [SerializeField] private ControlsPanel controlsPanel;
 
+    [Header("Save Slots")]
+    [Tooltip("Opened by Start (LoadScene1). Built by Tools/Save/Build Slot Select UI.")]
+    [SerializeField] private SlotSelectPanel slotSelectPanel;
+    [Tooltip("Resumes the most recently played slot with an active run. Hidden when there is none.")]
+    [SerializeField] private GameObject continueButton;
+
     private void Start()
     {
         if (settingsPanel != null) settingsPanel.gameObject.SetActive(false);
         if (controlsPanel != null) controlsPanel.gameObject.SetActive(false);
+        if (slotSelectPanel != null) slotSelectPanel.gameObject.SetActive(false);
+
+        if (continueButton != null) continueButton.SetActive(false);
+        StartCoroutine(RefreshContinueWhenReady());
 
         if (menuButtons != null && !menuButtons.TryGetComponent(out GamepadMenuPanel _))
             menuButtons.AddComponent<GamepadMenuPanel>();
     }
 
+    /// <summary>"Start" — opens slot select; the chosen slot starts or resumes the run.</summary>
     public void LoadScene1 ()
     {
-        // "Play" — funnels through StartNewRun() so GameSession actually
-        // resets for the new run (it previously didn't at all).
-        GameManager.Instance.StartNewRun();
+        if (slotSelectPanel == null)
+        {
+            Debug.LogError("[MainMenu] No SlotSelectPanel assigned — run Tools/Save/Build Slot Select UI.");
+            return;
+        }
+
+        EventSystem eventSystem = EventSystem.current;
+        GameObject openedFrom = eventSystem != null ? eventSystem.currentSelectedGameObject : null;
+
+        slotSelectPanel.Open(() =>
+        {
+            if (menuButtons != null) menuButtons.SetActive(true);
+            RefreshContinue(); // a slot may have been deleted
+            if (openedFrom != null && eventSystem != null && InputManager.UsingGamepad)
+                eventSystem.SetSelectedGameObject(openedFrom.activeInHierarchy ? openedFrom : null);
+        });
+
+        if (menuButtons != null) menuButtons.SetActive(false);
+    }
+
+    /// <summary>"Continue" — resumes the most recently written slot with an active run, skipping slot select.</summary>
+    public void ContinueRun()
+    {
+        int slot = GameSession.Instance != null ? GameSession.Instance.Saves.FindContinueSlot() : SaveService.NoSlot;
+        if (slot == SaveService.NoSlot)
+        {
+            RefreshContinue();
+            return;
+        }
+        GameManager.Instance.ContinueRunInSlot(slot);
+    }
+
+    // GameSession can arrive a frame late when this scene is played directly
+    // in the editor (SceneBootstrapGuard), so wait for it.
+    private IEnumerator RefreshContinueWhenReady()
+    {
+        while (GameSession.Instance == null) yield return null;
+        RefreshContinue();
+    }
+
+    private void RefreshContinue()
+    {
+        if (continueButton == null || GameSession.Instance == null) return;
+        continueButton.SetActive(GameSession.Instance.Saves.FindContinueSlot() != SaveService.NoSlot);
     }
 
     public void LoadScene2 ()

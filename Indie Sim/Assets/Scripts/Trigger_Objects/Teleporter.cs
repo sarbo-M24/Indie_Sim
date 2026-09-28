@@ -251,6 +251,10 @@ public class Teleporter : MonoBehaviour
     #region Trigger Events
     private void OnTriggerEnter2D(Collider2D other)
     {
+        // Idle while no dungeon is running (e.g. resumed into the store, where
+        // it hasn't been moved into a room yet and sits on the player's spawn).
+        if (roguelikeManager != null && !roguelikeManager.IsDungeonActive) return;
+
         if (other.CompareTag("Player"))
         {
             player = other.gameObject;

@@ -358,7 +358,12 @@ public class PlayerHealth : MonoBehaviour
         StatTracker statTracker = FindObjectOfType<StatTracker>();
         if (statTracker != null) statTracker.ShowDeathStats();
 
-        StartCoroutine(ShowDeathUI());
+        // The single run-end point: the slot's run is wiped (and a future
+        // extra-life system can intercept) BEFORE the death screen appears.
+        if (GameManager.Instance != null)
+            GameManager.Instance.FinishRun(RunEndReason.Death, () => StartCoroutine(ShowDeathUI()));
+        else
+            StartCoroutine(ShowDeathUI());
     }
 
     private IEnumerator ShowDeathUI()

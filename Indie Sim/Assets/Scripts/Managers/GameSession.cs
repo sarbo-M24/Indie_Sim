@@ -57,8 +57,65 @@ public class GameSession : MonoBehaviour
     }
 
     /// <summary>
-    /// Folds run results into PersistentStats and saves. Not called from
-    /// anywhere yet — Phase 5 wires death/boss-defeat/quit into this.
+    /// Slot select picked an Empty slot (newSlotName = what the player typed)
+    /// or a named slot with no active run (newSlotName = null). Makes it the
+    /// active slot for the session, starts a fresh run and writes the slot
+    /// (spec §4: new run → full write, LevelStart(1)). False if the slot
+    /// can't be read.
+    /// </summary>
+    public bool BeginNewRunInSlot(int slot, string newSlotName)
+    {
+        Saves.SetActiveSlot(slot);
+        Slot = new SlotData();
+
+        if (newSlotName != null)
+            Slot.Name = newSlotName;
+        else if (Saves.LoadActiveSlot() == LoadResult.Corrupted)
+            return false;
+
+        StartNewRun();
+        return Saves.WriteActiveSlot();
+    }
+
+    /// <summary>
+    /// Slot select / Continue picked a slot with an active run: makes it the
+    /// active slot and restores its Slot + Run data. False if it can't be read.
+    /// </summary>
+    public bool ResumeRunInSlot(int slot)
+    {
+        Saves.SetActiveSlot(slot);
+        Slot = new SlotData();
+        CurrentRun = new RunStats();
+
+        if (Saves.LoadActiveSlot() != LoadResult.Loaded)
+        {
+            Debug.LogError($"[GameSession] Slot {slot} has no run to resume.");
+            return false;
+        }
+
+        _runEnding = false;
+        return true;
+    }
+
+    /// <summary>
+    /// Save point (spec §4): writes the whole run to the active slot with the
+    /// given resume point — Store on entering the store / Save & Exit,
+    /// LevelStart when leaving the store for the next dungeon.
+    /// </summary>
+    public bool SaveRun(RunResumePoint resumePoint)
+    {
+        CurrentRun.ResumePoint = resumePoint;
+        return Saves.WriteActiveSlot();
+    }
+
+    /// <summary>
+    /// Run end (death or victory — reached only through GameManager.FinishRun).
+    /// Write order matters (spec §1): the profile first (lifetime stats, and
+    /// the demo unlock on victory), then the slot with its Run data wiped. A
+    /// crash between the two leaves the unlock set and the run resumable —
+    /// harmless; the reverse order could lose the unlock. Idempotent: death
+    /// and boss defeat both route here, and the death/demo screens' Main Menu
+    /// button calls it again via ReturnToMainMenu.
     /// </summary>
     public void EndRun(bool completed)
     {
@@ -71,5 +128,6 @@ public class GameSession : MonoBehaviour
             Persistent.DemoCompleted = true;
 
         Save();
+        Saves.WriteActiveSlotWipingRun();
     }
 }

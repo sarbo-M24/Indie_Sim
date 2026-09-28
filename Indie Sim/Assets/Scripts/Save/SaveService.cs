@@ -135,6 +135,27 @@ public sealed class SaveService
         return new SlotInfo(index, state, envelope.Header);
     }
 
+    /// <summary>
+    /// Main-menu Continue target: the slot with an active run whose header
+    /// was written most recently, or NoSlot. Worked out from the headers every
+    /// time rather than a stored "last slot" pointer, which could go stale
+    /// after a death, delete or corruption. Corrupted and no-run slots never
+    /// qualify.
+    /// </summary>
+    public int FindContinueSlot()
+    {
+        int best = NoSlot;
+        DateTime bestTime = DateTime.MinValue;
+        for (int i = 0; i < SlotCount; i++)
+        {
+            SlotInfo info = GetSlotInfo(i);
+            if (info.State != SlotState.ActiveRun || info.Header.LastWrittenUtc <= bestTime) continue;
+            best = i;
+            bestTime = info.Header.LastWrittenUtc;
+        }
+        return best;
+    }
+
     /// <summary>Restores Slot and Run sections from the active slot.</summary>
     public LoadResult LoadActiveSlot() => Load(CurrentSlotFileIndex());
 

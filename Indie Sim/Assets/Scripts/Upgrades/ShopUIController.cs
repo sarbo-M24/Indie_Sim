@@ -41,6 +41,8 @@ public class ShopUIController : MonoBehaviour
     [Tooltip("The pack's one shared Burn button. Only interactable while a pack cig is selected.")]
     [SerializeField] private Button burnButton;
     [SerializeField] private Button continueButton;
+    [Tooltip("Saves the run (resumes here, in the store) and returns to the main menu. Built by Tools/Save/Build Save & Exit + Quit Warning.")]
+    [SerializeField] private Button saveAndExitButton;
 
     [Header("Card slots — fixed pool, hidden when unused")]
     [SerializeField] private UpgradeCardView[] offerCards;
@@ -113,11 +115,12 @@ public class ShopUIController : MonoBehaviour
         if (burnButton != null) burnButton.onClick.AddListener(OnBurnButtonClicked);
         if (reshuffleButton != null) reshuffleButton.onClick.AddListener(OnReshuffleClicked);
         if (continueButton != null) continueButton.onClick.AddListener(OnContinueClicked);
+        if (saveAndExitButton != null) saveAndExitButton.onClick.AddListener(OnSaveAndExitClicked);
 
         // Hover/gamepad-focus grow on the action buttons. Added here so no
         // scene edit is needed; a ButtonFocusScale already on the button
         // (e.g. with tuned values) is kept as-is.
-        foreach (Button actionButton in new[] { buyButton, burnButton, reshuffleButton, continueButton })
+        foreach (Button actionButton in new[] { buyButton, burnButton, reshuffleButton, continueButton, saveAndExitButton })
             if (actionButton != null && !actionButton.TryGetComponent(out ButtonFocusScale _))
                 actionButton.gameObject.AddComponent<ButtonFocusScale>();
 
@@ -253,7 +256,8 @@ public class ShopUIController : MonoBehaviour
         SetNavigation(burnButton, up: null, down: First(Usable(pickedCigSel), firstCig, cont), left: First(Usable(selectedCardSel), firstCard), right: null);
         SetNavigation(buyButton, up: lastCard, down: null, left: null, right: First(reshuffle, cont));
         SetNavigation(reshuffleButton, up: lastCard, down: null, left: buy, right: cont);
-        SetNavigation(continueButton, up: First(lastCig, burn, lastCard), down: null, left: First(reshuffle, buy), right: null);
+        SetNavigation(continueButton, up: First(lastCig, burn, lastCard), down: Usable(saveAndExitButton), left: First(reshuffle, buy), right: null);
+        SetNavigation(saveAndExitButton, up: cont, down: null, left: First(reshuffle, buy), right: null);
     }
 
     private readonly List<Selectable> _navCards = new List<Selectable>();
@@ -797,5 +801,11 @@ public class ShopUIController : MonoBehaviour
         RoguelikeManager.Instance?.SetGameplayInputEnabled(true);
         Close();
         RoguelikeManager.Instance?.ContinueDungeon();
+    }
+
+    private void OnSaveAndExitClicked()
+    {
+        Close(); // releases the input block and cursor override before the scene goes
+        GameManager.Instance.SaveAndExitToMenu();
     }
 }
