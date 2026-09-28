@@ -118,7 +118,14 @@ public class PlayerHealth : MonoBehaviour
         }
 
         if (deathUIPanel != null)
+        {
             deathUIPanel.SetActive(false);
+
+            // Gamepad focus on Retry, visible cursor, player input off while
+            // the panel shows. Added while hidden so its OnEnable first runs on death.
+            if (!deathUIPanel.TryGetComponent(out GamepadMenuPanel _))
+                deathUIPanel.AddComponent<GamepadMenuPanel>();
+        }
 
         if (damageIndicator == null)
             damageIndicator = GetComponent<DamageIndicator>();

@@ -21,7 +21,12 @@ public class CustomCrosshair : MonoBehaviour
     [SerializeField] private float hitScaleMultiplier = 1.3f;
     [SerializeField] private AnimationCurve scaleCurve = AnimationCurve.EaseInOut(0, 1, 1, 1);
 
+    [Header("Gamepad")]
+    [Tooltip("World units from the player to the reticle while aiming with the right stick.")]
+    [SerializeField] private float gamepadReticleDistance = 4f;
+
     private bool isShowingHitFeedback = false;
+    private Transform player; // found lazily — only needed for gamepad aim
 
     private void Awake()
     {
@@ -107,18 +112,40 @@ public class CustomCrosshair : MonoBehaviour
 
     void Update()
     {
+        // Hidden while a menu (shop, pause, death) has player input off —
+        // otherwise it keeps orbiting the player on the right stick.
+        if (crosshairImage != null) crosshairImage.enabled = InputManager.Controls.Player.enabled;
+
         if (crosshairRect != null && canvas != null)
         {
             Vector2 mousePosition;
             RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 canvas.transform as RectTransform,
-                Input.mousePosition,
+                CrosshairScreenPoint(),
                 canvas.worldCamera,
                 out mousePosition
             );
 
             crosshairRect.localPosition = mousePosition;
         }
+    }
+
+    /// <summary>The pointer, or on gamepad a point gamepadReticleDistance along the stick aim from the player.</summary>
+    private Vector2 CrosshairScreenPoint()
+    {
+        if (InputManager.TryGetGamepadAim(out Vector2 aim) && Camera.main != null)
+        {
+            if (player == null)
+            {
+                PlayerConeShooter shooter = FindFirstObjectByType<PlayerConeShooter>();
+                if (shooter != null) player = shooter.transform;
+            }
+
+            if (player != null)
+                return Camera.main.WorldToScreenPoint(player.position + (Vector3)(aim * gamepadReticleDistance));
+        }
+
+        return InputManager.PointerPosition;
     }
 
     public void ShowHitFeedback()

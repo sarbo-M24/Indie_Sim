@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fae105ae56efbcb43b8d42039a7123cb, type: 3}
+  m_Name: Showcase_5_ThroneHalls
+  m_EditorClassIdentifier: Assembly-CSharp::MapParametersSO
+  nodeCount: 4
+  mainRoomSpacing: 26
+  chanceForLTurn: 0
+  mainArteryPositionJitter: 0
+  distributiveNodeChancePerSegment: 0.5
+  minLeafNodesPerDistributive: 1
+  maxLeafNodesPerDistributive: 2
+  leafBranchLength: 20
+  leafNodePositionJitter: 1
+  baseStartRoomSize: {x: 10, y: 10}
+  baseEndRoomSize: {x: 16, y: 12}
+  baseMainArteryRoomSize: {x: 16, y: 12}
+  baseDistributiveRoomSize: {x: 12, y: 12}
+  baseLeafRoomSize: {x: 9, y: 9}
+  baseCornerRoomSize: {x: 3, y: 3}
+  roomSizeVariationPercentage: 0.25
+  minRoomDistance: 4
+  maxRepositionAttempts: 10
+  repositionSearchRadius: 6
+  startRoomToArteryDistance: 6
+  minStartToEndDistance: 0
+  roomRotationChance: 0.5
+  corridorWidth: 3

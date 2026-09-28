@@ -103,11 +103,19 @@ public class WeaponAmmoManager : MonoBehaviour
     private void OnEnable()
     {
         WeaponInventory.OnWeaponChanged += OnWeaponSwitched;
+        InputManager.Controls.Player.Reload.performed += OnReloadPressed;
     }
 
     private void OnDisable()
     {
         WeaponInventory.OnWeaponChanged -= OnWeaponSwitched;
+        InputManager.Controls.Player.Reload.performed -= OnReloadPressed;
+    }
+
+    // Ignored until Update late-initializes the weapon, same as the old R-key check.
+    private void OnReloadPressed(UnityEngine.InputSystem.InputAction.CallbackContext ctx)
+    {
+        if (currentWeapon != null && !isReloading) TryReload();
     }
 
     private void Start()
@@ -164,9 +172,6 @@ public class WeaponAmmoManager : MonoBehaviour
             }
             return;
         }
-
-        if (Input.GetKeyDown(KeyCode.R) && !isReloading)
-            TryReload();
 
         if (currentAmmoInMagazine <= 0 && !isReloading)
             TryReload();

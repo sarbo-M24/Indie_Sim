@@ -38,7 +38,6 @@ public class PlayerStompController : MonoBehaviour
     [SerializeField] private Image lightIcon; // Image Type: Filled, Radial360, Top
     [SerializeField] private SpriteRenderer stompReadyOverlay; // Drag the overlay sprite here
     private PlayerController playerController;
-    private PlayerControls inputActions;
     private int stompCharges;
     private float stompRechargeTimer;
 
@@ -56,12 +55,13 @@ public class PlayerStompController : MonoBehaviour
     private void Awake()
     {
         playerController = GetComponent<PlayerController>();
-        inputActions = new PlayerControls();
-        inputActions.Player.Stomp.performed += ctx => TryStomp();
     }
 
-    private void OnEnable() => inputActions.Enable();
-    private void OnDisable() => inputActions.Disable();
+    // Shared instance (InputManager) — subscribe per enable so a destroyed player leaves no callbacks behind.
+    private void OnEnable() => InputManager.Controls.Player.Stomp.performed += OnStomp;
+    private void OnDisable() => InputManager.Controls.Player.Stomp.performed -= OnStomp;
+
+    private void OnStomp(InputAction.CallbackContext ctx) => TryStomp();
 
     private void Start()
     {

@@ -65,38 +65,43 @@ public class PlayerConeShooter : MonoBehaviour
     private LineRenderer rightEdgeLine;
     private bool isShowingConeFlash = false;
 
-    // Input system
-    private PlayerControls inputActions;
-
     #region Unity Lifecycle
 
     private void Awake()
     {
-        // Set up input system
-        inputActions = new PlayerControls();
-
-        inputActions.Player.Fire.performed += ctx => isFiring = true;
-        inputActions.Player.Fire.canceled += ctx => isFiring = false;
-
         if (mainCamera == null) mainCamera = Camera.main;
         playerController = GetComponent<PlayerController>();
     }
 
     private void OnEnable()
     {
-        inputActions.Enable();
+        // Shared instance (InputManager) — subscribe per enable so a destroyed player leaves no callbacks behind.
+        InputManager.Controls.Player.Fire.performed += OnFirePerformed;
+        InputManager.Controls.Player.Fire.canceled += OnFireCanceled;
 
         // Subscribe to weapon changes
         WeaponInventory.OnWeaponChanged += HandleWeaponChanged;
+
+        // OnWeaponChanged may have fired while this was disabled — TutorialManager
+        // disables it during the countdown, and when its Start runs before
+        // WeaponInventory's the starting weapon event is missed, leaving no
+        // weapon (no firing) until the player switched. Re-sync on every enable.
+        if (weaponInventory != null && weaponInventory.GetCurrentWeapon() != null)
+            currentWeapon = weaponInventory.GetCurrentWeapon();
     }
 
     private void OnDisable()
     {
-        inputActions.Disable();
+        InputManager.Controls.Player.Fire.performed -= OnFirePerformed;
+        InputManager.Controls.Player.Fire.canceled -= OnFireCanceled;
+        isFiring = false;
 
         // Unsubscribe to prevent memory leaks
         WeaponInventory.OnWeaponChanged -= HandleWeaponChanged;
     }
+
+    private void OnFirePerformed(UnityEngine.InputSystem.InputAction.CallbackContext ctx) => isFiring = true;
+    private void OnFireCanceled(UnityEngine.InputSystem.InputAction.CallbackContext ctx) => isFiring = false;
 
     private void Start()
     {
@@ -110,19 +115,6 @@ public class PlayerConeShooter : MonoBehaviour
         if (enableConeEdgeVisual)
         {
             InitializeConeEdgeLines();
-        }
-    }
-
-    private void Update()
-    {
-        // Fallback for mouse input (works with both old and new input systems)
-        if (Input.GetMouseButton(0))
-        {
-            isFiring = true;
-        }
-        else if (Input.GetMouseButtonUp(0))
-        {
-            isFiring = false;
         }
     }
 
@@ -872,7 +864,11 @@ public class PlayerConeShooter : MonoBehaviour
         if (mainCamera == null) mainCamera = Camera.main;
         if (mainCamera == null || firePoint == null) return Vector2.zero;
 
-        Vector3 mouseScreenPos = Input.mousePosition;
+        // Gamepad right stick overrides the cursor while it's the active aim source
+        if (InputManager.TryGetGamepadAim(out Vector2 stickDirection))
+            return stickDirection;
+
+        Vector3 mouseScreenPos = InputManager.PointerPosition;
         mouseScreenPos.z = Mathf.Abs(mainCamera.transform.position.z - firePoint.position.z);
 
         Vector3 worldMousePos = mainCamera.ScreenToWorldPoint(mouseScreenPos);

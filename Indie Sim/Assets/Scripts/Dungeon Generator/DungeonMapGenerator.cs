@@ -294,6 +294,21 @@ public class DungeonMapGenerator : MonoBehaviour
         SpawnLevelObjects();
     }
 
+    // Data-only generation (used by the showcase scene): seeded, no spawning, no painting.
+    public MapData GenerateMapDataOnly(int seed, int nodeCount)
+    {
+        mainRoomIdCounter = RoomIDCategories.MAIN_ROOM_START;
+        leafRoomIdCounter = RoomIDCategories.LEAF_ROOM_START;
+        distributiveRoomIdCounter = RoomIDCategories.DISTRIBUTIVE_ROOM_START;
+        cornerRoomIdCounter = RoomIDCategories.CORNER_ROOM_START;
+
+        rng = new System.Random(seed);
+
+        MapParameters runtimeParams = mapParametersSO.ToMapParameters();
+        runtimeParams.nodeCount = nodeCount;
+        return GenerateDungeon(runtimeParams);
+    }
+
     private void PrintRoomDebugInfo()
     {
         Debug.Log("=== ROOM DEBUG INFO ===");
@@ -526,6 +541,9 @@ public class DungeonMapGenerator : MonoBehaviour
 
         Debug.Log("Tile painting complete");
     }
+
+    public TileBase GetWallTileFor(Vector2Int pos, HashSet<Vector2Int> floorTiles, HashSet<Vector2Int> wallTiles)
+        => GetWallTileForPosition(pos, floorTiles, wallTiles);
 
     private TileBase GetWallTileForPosition(Vector2Int pos, HashSet<Vector2Int> floorTiles, HashSet<Vector2Int> wallTiles)
     {
@@ -1650,4 +1668,7 @@ public class DungeonMapGenerator : MonoBehaviour
 
     public MapData GetCurrentMapData() => currentMapData;
     public MapParameters GetParameters() => mapParametersSO?.ToMapParameters();
+    public TileBase[] FloorTileAssets => floorTiles;
+    public TileBase[] WallTileAssets => wallTiles;
+    public TileBase[] FoliageTileAssets => foliageTiles;
 }

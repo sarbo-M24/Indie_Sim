@@ -15,7 +15,6 @@ public class PlayerController : MonoBehaviour
     private Rigidbody2D rb;
     private float currentMoveSpeed;
     private Vector2 moveInput;
-    private PlayerControls inputActions;
 
     [Header("Dash Settings")]
     [SerializeField] private float dashSpeed = 30f;
@@ -97,16 +96,26 @@ public class PlayerController : MonoBehaviour
         stompController = GetComponent<PlayerStompController>();
         playerHealth = GetComponent<PlayerHealth>();
         playerCollider = GetComponent<Collider2D>();
-        inputActions = new PlayerControls();
-
-        inputActions.Player.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
-        inputActions.Player.Move.canceled += ctx => moveInput = Vector2.zero;
-
-        inputActions.Player.Dash.performed += ctx => TryDash();
     }
 
-    void OnEnable() => inputActions.Enable();
-    void OnDisable() => inputActions.Disable();
+    // Shared instance (InputManager) — subscribe per enable so a destroyed player leaves no callbacks behind.
+    void OnEnable()
+    {
+        InputManager.Controls.Player.Move.performed += OnMove;
+        InputManager.Controls.Player.Move.canceled += OnMove;
+        InputManager.Controls.Player.Dash.performed += OnDash;
+    }
+
+    void OnDisable()
+    {
+        InputManager.Controls.Player.Move.performed -= OnMove;
+        InputManager.Controls.Player.Move.canceled -= OnMove;
+        InputManager.Controls.Player.Dash.performed -= OnDash;
+        moveInput = Vector2.zero;
+    }
+
+    private void OnMove(InputAction.CallbackContext ctx) => moveInput = ctx.ReadValue<Vector2>();
+    private void OnDash(InputAction.CallbackContext ctx) => TryDash();
 
     void Start()
     {

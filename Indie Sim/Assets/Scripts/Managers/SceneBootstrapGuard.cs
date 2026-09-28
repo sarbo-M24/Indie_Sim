@@ -29,6 +29,7 @@ public static class SceneBootstrapGuard
         SceneManager.sceneLoaded -= OnFirstSceneLoaded;
 
         if (scene.name == "Boot") return;          // Boot bootstraps itself
+        if (scene.name == "DungeonRevealShowcase") return; // standalone marketing scene (Assets/_Showcase)
         if (GameSession.Instance != null) return;  // already bootstrapped
 
         Debug.Log($"[SceneBootstrapGuard] '{scene.name}' entered without Boot having run first — additively loading Boot now. If you didn't press Play directly on a gameplay scene, this means Play started from whatever scene was open in the editor instead of Boot.unity.");

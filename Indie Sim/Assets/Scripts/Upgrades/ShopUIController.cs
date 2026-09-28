@@ -72,6 +72,8 @@ public class ShopUIController : MonoBehaviour
     private UpgradeCardView _focusedCard;
     // Clicked card: keeps the Focused look after the pointer leaves, until a click elsewhere (see Update).
     private UpgradeCardView _selectedCard;
+    // Card or pack cig "hovered" by gamepad selection (see TrackGamepadSelection).
+    private Component _selectionHover;
     private int _reshufflesThisVisit;
     private readonly List<RaycastResult> _clickHits = new List<RaycastResult>();
 
@@ -112,6 +114,13 @@ public class ShopUIController : MonoBehaviour
         if (reshuffleButton != null) reshuffleButton.onClick.AddListener(OnReshuffleClicked);
         if (continueButton != null) continueButton.onClick.AddListener(OnContinueClicked);
 
+        // Hover/gamepad-focus grow on the action buttons. Added here so no
+        // scene edit is needed; a ButtonFocusScale already on the button
+        // (e.g. with tuned values) is kept as-is.
+        foreach (Button actionButton in new[] { buyButton, burnButton, reshuffleButton, continueButton })
+            if (actionButton != null && !actionButton.TryGetComponent(out ButtonFocusScale _))
+                actionButton.gameObject.AddComponent<ButtonFocusScale>();
+
         if (offerCards != null)
             foreach (UpgradeCardView card in offerCards)
             {
@@ -131,15 +140,31 @@ public class ShopUIController : MonoBehaviour
             }
     }
 
+    private void OnDestroy()
+    {
+        // Scene unloaded with the shop open — don't leave the Player map blocked.
+        InputManager.SetPlayerBlocked(this, false);
+    }
+
     private void Update()
     {
         if (shopPanel != null && !shopPanel.activeInHierarchy) return;
-        if (!Input.GetMouseButtonDown(0)) return;
 
-        // Runs on mouse-down, before any Button's onClick (mouse-up), so
-        // clicking another card/cig clears the old selection first and then
-        // selects the new one.
-        Transform hit = PointerHit();
+        // Paused over the shop: the pause menu owns focus and clicks.
+        if (Time.timeScale == 0f) return;
+
+        RefreshNavigation();
+        UIFocus.EnsureSelection(shopPanel != null ? shopPanel.transform : transform, FirstOfferSelectable());
+        TrackGamepadSelection();
+
+        // Mouse: runs on mouse-down, before any Button's onClick (mouse-up),
+        // so clicking another card/cig clears the old selection first and
+        // then selects the new one. Gamepad: Submit acts as a click on the
+        // selected object; order vs. its onClick doesn't matter either way.
+        Transform hit;
+        if (InputManager.Controls.UI.Click.WasPressedThisFrame()) hit = PointerHit();
+        else if (InputManager.Controls.UI.Submit.WasPressedThisFrame()) hit = SelectedTransform();
+        else return;
 
         // Burn selection survives only a click on the selected cig or the Burn button.
         PackCigView selectedCig = SelectedPackCig();
@@ -160,10 +185,166 @@ public class ShopUIController : MonoBehaviour
     {
         if (EventSystem.current == null) return null;
 
-        PointerEventData pointer = new PointerEventData(EventSystem.current) { position = Input.mousePosition };
+        PointerEventData pointer = new PointerEventData(EventSystem.current) { position = InputManager.PointerPosition };
         _clickHits.Clear();
         EventSystem.current.RaycastAll(pointer, _clickHits);
         return _clickHits.Count > 0 ? _clickHits[0].gameObject.transform : null;
+    }
+
+    /// <summary>The EventSystem's selected object (gamepad focus), or null.</summary>
+    private static Transform SelectedTransform()
+    {
+        GameObject selected = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
+        return selected != null ? selected.transform : null;
+    }
+
+    /// <summary>Where gamepad focus lands when the shop has none: the first card still showing an offer.</summary>
+    private Selectable FirstOfferSelectable()
+    {
+        if (offerCards == null) return null;
+        foreach (UpgradeCardView card in offerCards)
+            if (card != null && card.BoundInstance != null && card.isActiveAndEnabled)
+                return card.GetComponentInChildren<Selectable>();
+        return null;
+    }
+
+    /// <summary>
+    /// Explicit D-pad/stick navigation for the whole shop. Automatic
+    /// navigation can't be used: the pack cigs are rotated ~180° in the
+    /// scene and Unity turns "up" by each Selectable's rotation, so Up from
+    /// a cig went down. Rebuilt every frame the shop is open (only written
+    /// when it changes) so hidden slots and disabled Buy/Burn are skipped —
+    /// focus never lands on something that can't be seen or pressed.
+    ///   Cards: Up/Down through the stack, Down past the last → bottom row, Right → pack.
+    ///   Pack cigs: Left/Right through the pack, Up → Burn (once a cig is picked), Down → Continue, Left → cards.
+    ///   Bottom row: Buy ↔ Reshuffle ↔ Continue; Up → cards (Continue: → pack).
+    /// </summary>
+    private void RefreshNavigation()
+    {
+        CollectSelectables(offerCards, _navCards);
+        CollectSelectables(packCigSlots, _navCigs);
+
+        Selectable firstCard = _navCards.Count > 0 ? _navCards[0] : null;
+        Selectable lastCard = _navCards.Count > 0 ? _navCards[_navCards.Count - 1] : null;
+        Selectable firstCig = _navCigs.Count > 0 ? _navCigs[0] : null;
+        Selectable lastCig = _navCigs.Count > 0 ? _navCigs[_navCigs.Count - 1] : null;
+        Selectable buy = Usable(buyButton), burn = Usable(burnButton);
+        Selectable reshuffle = Usable(reshuffleButton), cont = Usable(continueButton);
+        Selectable bottomLeft = First(buy, reshuffle, cont);
+
+        PackCigView pickedCig = SelectedPackCig();
+        Selectable pickedCigSel = pickedCig != null ? pickedCig.GetComponent<Selectable>() : null;
+        Selectable selectedCardSel = _selectedCard != null ? _selectedCard.GetComponent<Selectable>() : null;
+
+        for (int i = 0; i < _navCards.Count; i++)
+            SetNavigation(_navCards[i],
+                up: i > 0 ? _navCards[i - 1] : null,
+                down: i < _navCards.Count - 1 ? _navCards[i + 1] : bottomLeft,
+                left: null,
+                right: First(firstCig, burn, cont));
+
+        for (int i = 0; i < _navCigs.Count; i++)
+            SetNavigation(_navCigs[i],
+                up: burn,
+                down: cont,
+                left: i > 0 ? _navCigs[i - 1] : First(Usable(selectedCardSel), firstCard),
+                right: i < _navCigs.Count - 1 ? _navCigs[i + 1] : null);
+
+        SetNavigation(burnButton, up: null, down: First(Usable(pickedCigSel), firstCig, cont), left: First(Usable(selectedCardSel), firstCard), right: null);
+        SetNavigation(buyButton, up: lastCard, down: null, left: null, right: First(reshuffle, cont));
+        SetNavigation(reshuffleButton, up: lastCard, down: null, left: buy, right: cont);
+        SetNavigation(continueButton, up: First(lastCig, burn, lastCard), down: null, left: First(reshuffle, buy), right: null);
+    }
+
+    private readonly List<Selectable> _navCards = new List<Selectable>();
+    private readonly List<Selectable> _navCigs = new List<Selectable>();
+
+    private static void CollectSelectables<T>(T[] views, List<Selectable> into) where T : Component
+    {
+        into.Clear();
+        if (views == null) return;
+        foreach (T view in views)
+        {
+            if (view == null || !view.gameObject.activeInHierarchy) continue;
+            Selectable selectable = Usable(view.GetComponent<Selectable>());
+            if (selectable != null) into.Add(selectable);
+        }
+    }
+
+    private static Selectable Usable(Selectable selectable)
+    {
+        return selectable != null && selectable.IsActive() && selectable.IsInteractable() ? selectable : null;
+    }
+
+    private static Selectable First(params Selectable[] candidates)
+    {
+        foreach (Selectable candidate in candidates)
+            if (candidate != null) return candidate;
+        return null;
+    }
+
+    private static void SetNavigation(Selectable selectable, Selectable up, Selectable down, Selectable left, Selectable right)
+    {
+        if (selectable == null) return;
+
+        Navigation nav = new Navigation
+        {
+            mode = Navigation.Mode.Explicit,
+            selectOnUp = up,
+            selectOnDown = down,
+            selectOnLeft = left,
+            selectOnRight = right
+        };
+        if (!selectable.navigation.Equals(nav)) selectable.navigation = nav;
+    }
+
+    /// <summary>
+    /// Gamepad only: moves focus to the first usable candidate. Used after a
+    /// Buy/Burn, which disables the button that was just pressed and would
+    /// otherwise leave focus stranded on it.
+    /// </summary>
+    private static void FocusIfGamepad(params Selectable[] candidates)
+    {
+        if (!InputManager.UsingGamepad || EventSystem.current == null) return;
+
+        foreach (Selectable candidate in candidates)
+        {
+            if (Usable(candidate) == null) continue;
+            EventSystem.current.SetSelectedGameObject(candidate.gameObject);
+            return;
+        }
+    }
+
+    /// <summary>
+    /// Gamepad selection stands in for hover: moving focus onto a card or
+    /// pack cig raises the same hover enter/exit the pointer does, so focus,
+    /// tooltip and stat preview work without a mouse. Only the element this
+    /// entered is exited, so mouse hover is never cleared by it.
+    /// </summary>
+    private void TrackGamepadSelection()
+    {
+        Component target = null;
+        Transform selected = InputManager.UsingGamepad ? SelectedTransform() : null;
+        if (selected != null)
+        {
+            UpgradeCardView card = selected.GetComponentInParent<UpgradeCardView>();
+            if (card != null) target = card;
+            else
+            {
+                PackCigView cig = selected.GetComponentInParent<PackCigView>();
+                if (cig != null) target = cig;
+            }
+        }
+
+        if (target == _selectionHover) return;
+
+        if (_selectionHover is UpgradeCardView oldCard) OnOfferCardHoverExit(oldCard);
+        else if (_selectionHover is PackCigView oldCig) OnPackCigHoverExit(oldCig);
+
+        _selectionHover = target;
+
+        if (target is UpgradeCardView newCard) OnOfferCardHoverEnter(newCard);
+        else if (target is PackCigView newCig) OnPackCigHoverEnter(newCig);
     }
 
     private static bool IsUnder(Transform hit, Component root)
@@ -183,8 +364,9 @@ public class ShopUIController : MonoBehaviour
     {
         if (shopPanel != null) shopPanel.SetActive(true);
 
+        InputManager.SetPlayerBlocked(this, true); // A/Submit in the shop can't also stomp
         RoguelikeManager.Instance?.SetGameplayInputEnabled(false);
-        CursorController.Instance?.SetCursorOverride(true);
+        CursorController.Instance?.SetCursorOverride(this, true);
         BurningCigsHUD.Instance?.SetVisible(false);
 
         RefreshCoinsText();
@@ -198,8 +380,11 @@ public class ShopUIController : MonoBehaviour
     private void Close()
     {
         ClearFocus();
+        _selectionHover = null;
+        if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null);
         if (shopPanel != null) shopPanel.SetActive(false);
-        CursorController.Instance?.SetCursorOverride(false);
+        InputManager.SetPlayerBlocked(this, false);
+        CursorController.Instance?.SetCursorOverride(this, false);
         BurningCigsHUD.Instance?.SetVisible(true);
     }
 
@@ -379,10 +564,16 @@ public class ShopUIController : MonoBehaviour
         BurnResolver.Instance.Burn(_selectedHeld);
         ClearBurnSelection();
         PopulatePackCigs();
+
+        // Burn is now disabled — move pad focus back into the pack (or on to Continue).
+        CollectSelectables(packCigSlots, _navCigs);
+        FocusIfGamepad(_navCigs.Count > 0 ? _navCigs[0] : null, continueButton);
     }
 
     private void OnPackCigHoverEnter(PackCigView cig)
     {
+        if (cig.BoundInstance != null) cig.SetFocused(true);
+
         CigInstance instance = cig.BoundInstance;
         if (tooltip == null || instance?.Data == null) return;
 
@@ -401,6 +592,7 @@ public class ShopUIController : MonoBehaviour
 
     private void OnPackCigHoverExit(PackCigView cig)
     {
+        cig.SetFocused(false);
         if (tooltip != null) tooltip.Hide(cig);
     }
 
@@ -535,6 +727,9 @@ public class ShopUIController : MonoBehaviour
 
             PopulatePackCigs(); // held list changed — the bought cig now occupies a pack slot
             RefreshReshuffleUI();
+
+            // Buy is now disabled and the bought card hidden — move pad focus to what's left.
+            FocusIfGamepad(FirstOfferSelectable(), reshuffleButton, continueButton);
             UpgradePurchased?.Invoke(offer);
         }
         else

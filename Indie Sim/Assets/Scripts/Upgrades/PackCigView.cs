@@ -32,8 +32,14 @@ public class PackCigView : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
     [SerializeField] private float liftDistance = 25f;
     [SerializeField] private float liftDuration = 0.1f;
 
+    [Header("Focus border (hover / gamepad focus)")]
+    [Tooltip("Outline drawn around the cig art while it's hovered or gamepad-focused.")]
+    [SerializeField] private Color focusBorderColor = Color.white;
+    [SerializeField] private Vector2 focusBorderDistance = new Vector2(3f, -3f);
+
     private Vector2 _restPosition;
     private Coroutine _liftRoutine;
+    private Outline _focusOutline;
 
     public CigInstance BoundInstance { get; private set; }
     public bool IsSelected { get; private set; }
@@ -50,6 +56,15 @@ public class PackCigView : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
         if (liftTarget == null && icon != null) liftTarget = icon.rectTransform;
         if (liftTarget != null) _restPosition = liftTarget.anchoredPosition;
 
+        if (icon != null && !icon.TryGetComponent(out _focusOutline))
+            _focusOutline = icon.gameObject.AddComponent<Outline>();
+        if (_focusOutline != null)
+        {
+            _focusOutline.effectColor = focusBorderColor;
+            _focusOutline.effectDistance = focusBorderDistance;
+            _focusOutline.enabled = false;
+        }
+
         // No SetEmpty() here: Awake can first run *inside* Populate's
         // SetActive(true) (the shop panel is hidden at load), and hiding here
         // would undo that Populate. The controller sets every slot's
@@ -61,6 +76,7 @@ public class PackCigView : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
     {
         // Pointer-exit never fires on a slot that gets hidden mid-hover.
         OnHoverExit?.Invoke(this);
+        SetFocused(false);
 
         // Snap down so a half-finished lift isn't frozen until the slot is shown again.
         StopLiftTween();
@@ -105,6 +121,12 @@ public class PackCigView : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
 
         StopLiftTween();
         _liftRoutine = StartCoroutine(TweenLift(TargetPosition()));
+    }
+
+    /// <summary>Border on the cig art while hovered or gamepad-focused — separate from SetSelected's lift (chosen for burning).</summary>
+    public void SetFocused(bool focused)
+    {
+        if (_focusOutline != null) _focusOutline.enabled = focused;
     }
 
     public void OnPointerEnter(PointerEventData eventData)

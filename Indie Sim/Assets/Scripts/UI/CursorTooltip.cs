@@ -15,9 +15,10 @@ using TMPro;
 /// catches the pointer steals hover from the element that opened it, which
 /// hides the tooltip, which re-fires pointer-enter — endless flicker.
 ///
-/// Reads Input.mousePosition, the same source CustomCrosshair uses; the
-/// shop shows the hardware cursor via CursorController, so no custom cursor
-/// position needs tracking. The panel's own VerticalLayoutGroup +
+/// Reads the pointer through InputManager (UI/Point), the same source
+/// CustomCrosshair uses; the shop shows the hardware cursor via
+/// CursorController, so no custom cursor position needs tracking. On gamepad
+/// it anchors beside the owning element instead (see AnchorScreenPoint). The panel's own VerticalLayoutGroup +
 /// ContentSizeFitter (Preferred/Preferred) size it; this script only caps
 /// each text's preferred width at maxTextWidth so long text wraps.
 ///
@@ -57,6 +58,7 @@ public class CursorTooltip : MonoBehaviour
     private object _owner;
     private bool _initialized;
     private Color _baseBackgroundColor = Color.white;
+    private readonly Vector3[] _corners = new Vector3[4];
 
     public bool IsShowing => _owner != null;
 
@@ -197,7 +199,7 @@ public class CursorTooltip : MonoBehaviour
         if (_canvasRect == null) return;
 
         Camera cam = _rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : _rootCanvas.worldCamera;
-        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(_canvasRect, Input.mousePosition, cam, out Vector2 cursor))
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(_canvasRect, AnchorScreenPoint(cam), cam, out Vector2 cursor))
             return;
 
         Rect bounds = _canvasRect.rect;
@@ -221,6 +223,21 @@ public class CursorTooltip : MonoBehaviour
         target.y = ClampAxis(target.y, pivot.y, size.y, bounds.yMin, bounds.yMax);
 
         panel.position = _canvasRect.TransformPoint(target);
+    }
+
+    /// <summary>
+    /// The pointer, or on gamepad (no cursor to follow) the owning element's
+    /// top-right corner, so the tooltip sits beside the selected card.
+    /// </summary>
+    private Vector2 AnchorScreenPoint(Camera cam)
+    {
+        if (InputManager.UsingGamepad && _owner is Component owner && owner != null && owner.transform is RectTransform rect)
+        {
+            rect.GetWorldCorners(_corners);
+            return RectTransformUtility.WorldToScreenPoint(cam, _corners[2]);
+        }
+
+        return InputManager.PointerPosition;
     }
 
     private static float ClampAxis(float position, float pivot, float size, float min, float max)

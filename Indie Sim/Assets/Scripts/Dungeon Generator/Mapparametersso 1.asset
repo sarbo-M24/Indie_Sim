@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fae105ae56efbcb43b8d42039a7123cb, type: 3}
+  m_Name: Mapparametersso 1
+  m_EditorClassIdentifier: Assembly-CSharp::Mapparametersso
+  nodeCount: 7
+  mainRoomSpacing: 6
+  chanceForLTurn: 1
+  mainArteryPositionJitter: 2
+  distributiveNodeChancePerSegment: 0.858
+  minLeafNodesPerDistributive: 1
+  maxLeafNodesPerDistributive: 3
+  leafBranchLength: 6
+  leafNodePositionJitter: 1.5
+  baseStartRoomSize: {x: 3, y: 3}
+  baseEndRoomSize: {x: 8, y: 8}
+  baseMainArteryRoomSize: {x: 7, y: 7}
+  baseDistributiveRoomSize: {x: 5, y: 5}
+  baseLeafRoomSize: {x: 5, y: 5}
+  baseCornerRoomSize: {x: 4, y: 4}
+  roomSizeVariationPercentage: 0.812
+  minRoomDistance: 1
+  maxRepositionAttempts: 30
+  repositionSearchRadius: 5
+  startRoomToArteryDistance: 12
+  minStartToEndDistance: 40
+  roomRotationChance: 1
+  corridorWidth: 6

@@ -50,6 +50,10 @@ public class TutorialManager : MonoBehaviour
         if (instructionPanel != null)
         {
             instructionPanel.SetActive(true);
+
+            // Gamepad focus on Skip, visible cursor, player input off while it shows.
+            if (!instructionPanel.TryGetComponent(out GamepadMenuPanel _))
+                instructionPanel.AddComponent<GamepadMenuPanel>();
         }
 
         // Disable all player scripts

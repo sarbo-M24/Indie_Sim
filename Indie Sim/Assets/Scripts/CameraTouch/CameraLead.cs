@@ -205,11 +205,21 @@ public class CinemachineCursorLead : MonoBehaviour
 
     void CalculateTargetPosition()
     {
-        // Get mouse position in world space
-        Vector3 mouseWorldPos = GetMouseWorldPosition();
+        Vector3 playerToMouse;
+        if (InputManager.TryGetGamepadAim(out Vector2 aim))
+        {
+            // Gamepad: full lead along the aim, held after the stick is
+            // released — same as a mouse parked past maxLeadDistance.
+            playerToMouse = (Vector3)(aim * maxLeadDistance);
+        }
+        else
+        {
+            // Get mouse position in world space
+            Vector3 mouseWorldPos = GetMouseWorldPosition();
 
-        // Calculate direction from player to mouse
-        Vector3 playerToMouse = mouseWorldPos - player.position;
+            // Calculate direction from player to mouse
+            playerToMouse = mouseWorldPos - player.position;
+        }
 
         // For 2D (XY plane), ignore Z depth
         playerToMouse.z = 0f;
@@ -413,7 +423,7 @@ public class CinemachineCursorLead : MonoBehaviour
     Vector3 GetMouseWorldPosition()
     {
         // Convert mouse screen position to world position
-        Vector3 mouseScreenPos = Input.mousePosition;
+        Vector3 mouseScreenPos = InputManager.PointerPosition;
 
         // Set Z distance for ScreenToWorldPoint
         mouseScreenPos.z = Mathf.Abs(mainCamera.transform.position.z - player.position.z);

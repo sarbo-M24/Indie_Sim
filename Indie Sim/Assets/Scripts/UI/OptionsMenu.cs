@@ -49,6 +49,10 @@ public class OptionsMenu : MonoBehaviour
         if (optionsPanel != null)
         {
             optionsPanel.SetActive(false);
+
+            // Added while hidden so its OnEnable (input block, cursor, focus) first runs on pause.
+            if (!optionsPanel.TryGetComponent(out GamepadMenuPanel _))
+                optionsPanel.AddComponent<GamepadMenuPanel>();
         }
 
         if (pauseOverlay != null)
@@ -115,7 +119,6 @@ public class OptionsMenu : MonoBehaviour
 
         isGamePaused = false;
         Time.timeScale = 1f; // Resume the game
-
         // Hide options menu
         if (optionsPanel != null)
         {
@@ -269,15 +272,21 @@ public class OptionsMenu : MonoBehaviour
 
     #endregion
 
-    #region Input Handling (Optional)
+    #region Input Handling
 
-    private void Update()
+    // Pause action (Esc / Start) lives in the always-on UI map, so it also resumes.
+    // Input blocking, cursor and gamepad focus while open are the panel's
+    // GamepadMenuPanel's job (added in InitializeOptionsMenu).
+    private void OnEnable() => InputManager.Controls.UI.Pause.performed += OnPausePressed;
+    private void OnDisable() => InputManager.Controls.UI.Pause.performed -= OnPausePressed;
+
+    private void OnPausePressed(UnityEngine.InputSystem.InputAction.CallbackContext ctx)
     {
-        // Optional: ESC key to toggle options menu
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            ToggleOptionsMenu();
-        }
+        // Something else already froze the game (death screen, demo complete) —
+        // pausing over it and resuming would set timeScale back to 1 under it.
+        if (!isGamePaused && Time.timeScale == 0f) return;
+
+        ToggleOptionsMenu();
     }
 
     #endregion

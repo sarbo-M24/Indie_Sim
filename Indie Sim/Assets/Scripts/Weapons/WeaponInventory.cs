@@ -18,7 +18,6 @@ public class WeaponInventory : MonoBehaviour
     [SerializeField] private float scrollThreshold = 0.1f; // Minimum scroll value to register
 
     private WeaponData currentWeapon;
-    private PlayerControls inputActions;
 
     // ✅ EVENT: Other scripts can listen to this without needing a reference to this script
     public static event Action<WeaponData> OnWeaponChanged;
@@ -27,27 +26,23 @@ public class WeaponInventory : MonoBehaviour
 
     #region Unity Lifecycle
 
-    private void Awake()
-    {
-        // Set up input system for weapon switching
-        inputActions = new PlayerControls();
-
-        // Tab key - cycles to next weapon
-        inputActions.Player.SwitchWeapon.performed += ctx => SwitchToNextWeapon();
-
-        // Mouse scroll wheel - scrolls through weapons
-        inputActions.Player.SwitchWeaponScroll.performed += OnScrollWeapon;
-    }
-
+    // Shared instance (InputManager) — subscribe per enable so a destroyed player leaves no callbacks behind.
     private void OnEnable()
     {
-        inputActions.Enable();
+        // Tab / Y - cycles to next weapon
+        InputManager.Controls.Player.SwitchWeapon.performed += OnSwitchWeapon;
+
+        // Mouse scroll wheel / shoulders - scrolls through weapons
+        InputManager.Controls.Player.SwitchWeaponScroll.performed += OnScrollWeapon;
     }
 
     private void OnDisable()
     {
-        inputActions.Disable();
+        InputManager.Controls.Player.SwitchWeapon.performed -= OnSwitchWeapon;
+        InputManager.Controls.Player.SwitchWeaponScroll.performed -= OnScrollWeapon;
     }
+
+    private void OnSwitchWeapon(InputAction.CallbackContext context) => SwitchToNextWeapon();
 
     private void Start()
     {

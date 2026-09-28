@@ -14,7 +14,6 @@ public class SimplePlayerRotation : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool showDebugLine = true;
 
-    private PlayerControls inputActions;
     private Vector2 mousePositionInput;
     private Vector3 cachedWorldMousePos;
     private Rigidbody2D rb;
@@ -23,21 +22,14 @@ public class SimplePlayerRotation : MonoBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
 
-        inputActions = new PlayerControls();
-        inputActions.Player.Look.performed += ctx => mousePositionInput = ctx.ReadValue<Vector2>();
-
         if (mainCamera == null) mainCamera = Camera.main;
     }
 
-    void OnEnable()
-    {
-        inputActions.Enable();
-    }
+    // Shared instance (InputManager) — subscribe per enable so a destroyed player leaves no callbacks behind.
+    void OnEnable() => InputManager.Controls.Player.Look.performed += OnLook;
+    void OnDisable() => InputManager.Controls.Player.Look.performed -= OnLook;
 
-    void OnDisable()
-    {
-        inputActions.Disable();
-    }
+    private void OnLook(InputAction.CallbackContext ctx) => mousePositionInput = ctx.ReadValue<Vector2>();
 
     void Update()
     {
@@ -76,6 +68,10 @@ public class SimplePlayerRotation : MonoBehaviour
             cachedWorldMousePos.x - transform.position.x,
             cachedWorldMousePos.y - transform.position.y
         );
+
+        // Gamepad right stick overrides the cursor while it's the active aim source
+        if (InputManager.TryGetGamepadAim(out Vector2 stickDirection))
+            direction = stickDirection;
 
         // Only rotate if mouse is far enough from player
         if (direction.sqrMagnitude < minRotationDistance * minRotationDistance) return;
