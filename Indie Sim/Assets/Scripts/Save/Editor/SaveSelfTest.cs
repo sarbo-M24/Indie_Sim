@@ -6,7 +6,7 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// 4A acceptance checks for SaveService, runnable from Tools/Save/Run Self-Test
+/// 4A + 4B acceptance checks for SaveService and the real sections, runnable from Tools/Save/Run Self-Test
 /// (no Play mode needed). Works in a throwaway temp folder with its own test
 /// sections — never touches real saves or GameSession.
 /// </summary>
@@ -80,6 +80,10 @@ public static class SaveSelfTest
             RunWipe();
             DebugSlotNeverTouchesDisk();
 
+            // 4B — the real sections, against test data (never GameSession).
+            RealSectionsRoundTrip();
+            UnknownContentIdSkipped();
+            RemovedRealSectionLoadsDefault();
         }
         catch (Exception e)
         {
@@ -266,6 +270,140 @@ public static class SaveSelfTest
         run.Value = 0;
         Check(service.LoadActiveSlot() == LoadResult.Loaded && run.Value == 11, "debug slot: round trips in memory");
         Check(Directory.GetFiles(_folder).Length == before.Length, "debug slot: nothing written to disk");
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  4B — real sections
+    // ─────────────────────────────────────────────────────────────────
+
+    private class Session
+    {
+        public RunStats Run = new RunStats();
+        public SlotData Slot = new SlotData();
+        public PersistentStats Persistent = new PersistentStats();
+        public SaveService Saves;
+
+        public Session(ContentCatalog catalog, int slot)
+        {
+            Saves = new SaveService(_folder);
+            SaveBootstrap.RegisterSections(Saves, () => Run, () => Slot, () => Persistent, catalog);
+            Saves.SetActiveSlot(slot);
+        }
+    }
+
+    private static bool TryCatalog(out ContentCatalog catalog)
+    {
+        catalog = ContentCatalog.Load();
+        bool ok = catalog.Cigs.Count >= 3 && catalog.Weapons.Count >= 2;
+        Check(ok, "ContentCatalog has at least 3 upgrades and 2 weapons to test with");
+        return ok;
+    }
+
+    private static void Populate(Session s, ContentCatalog catalog)
+    {
+        RunStats run = s.Run;
+        run.CurrentCoins = 37;
+        run.MaxCoins = 120;
+        run.CoinsCollectedThisRun = 210;
+        run.KillsThisRun = 44;
+        run.CurrentDungeonLevel = 4;
+        run.DungeonsClearedThisRun = 3;
+        run.DungeonSizeIncrement = 2;
+        run.ResumePoint = RunResumePoint.Store;
+        run.RelicsHeld[1] = true;
+        run.RelicsHeld[5] = true;
+        run.UniqueRelicsCollectedThisRun = 2;
+        run.HeldCigs.Add(new CigInstance { Data = catalog.Cigs[0], RolledTier = 3, RolledRarity = Rarity.Rare, IsBurning = true });
+        run.HeldCigs.Add(new CigInstance { Data = catalog.Cigs[1], RolledTier = 1, RolledRarity = Rarity.Common });
+        run.PurchasedCigIds.AddRange(new[] { catalog.Cigs[0].id, catalog.Cigs[1].id, catalog.Cigs[2].id });
+        run.OwnedWeapons.AddRange(new[] { catalog.Weapons[0], catalog.Weapons[1] });
+        run.EquippedWeapon = catalog.Weapons[1];
+
+        s.Slot.Name = "Tester";
+
+        s.Persistent.TotalCoinsEverCollected = 9001;
+        s.Persistent.TotalEnemiesKilled = 321;
+        s.Persistent.TotalRuns = 12;
+        s.Persistent.BestRunDungeonsCleared = 5;
+        s.Persistent.DemoCompleted = true;
+        s.Persistent.UnlockedAchievementIds.AddRange(new[] { "kills_100", "coins_1000" });
+    }
+
+    // Everything the save covers, as one comparable string.
+    private static string Describe(RunStats run)
+    {
+        string cigs = string.Join(",", run.HeldCigs.ConvertAll(c => $"{(c.Data != null ? c.Data.id : "null")}:{c.RolledTier}:{c.RolledRarity}:{c.IsBurning}"));
+        string relics = string.Join("", Array.ConvertAll(run.RelicsHeld, held => held ? "1" : "0"));
+        string owned = string.Join(",", run.OwnedWeapons.ConvertAll(w => w != null ? w.id : "null"));
+        return $"coins {run.CurrentCoins}/{run.MaxCoins} collected {run.CoinsCollectedThisRun} kills {run.KillsThisRun} | " +
+               $"dungeon {run.CurrentDungeonLevel} cleared {run.DungeonsClearedThisRun} size+{run.DungeonSizeIncrement} resume {run.ResumePoint} | " +
+               $"relics {relics} ({run.UniqueRelicsCollectedThisRun}) | cigs [{cigs}] bought [{string.Join(",", run.PurchasedCigIds)}] | " +
+               $"weapon {(run.EquippedWeapon != null ? run.EquippedWeapon.id : "null")} owned [{owned}]";
+    }
+
+    private static string Describe(PersistentStats p) =>
+        $"coins {p.TotalCoinsEverCollected} kills {p.TotalEnemiesKilled} runs {p.TotalRuns} best {p.BestRunDungeonsCleared} " +
+        $"demo {p.DemoCompleted} achievements [{string.Join(",", p.UnlockedAchievementIds)}]";
+
+    private static void CheckSame(string expected, string actual, string what)
+    {
+        Check(expected == actual, what);
+        if (expected != actual) Debug.LogError($"[SaveSelfTest]   expected: {expected}\n   actual:   {actual}");
+    }
+
+    private static void RealSectionsRoundTrip()
+    {
+        if (!TryCatalog(out ContentCatalog catalog)) return;
+        DeleteAllFiles(0);
+
+        Session before = new Session(catalog, 0);
+        Populate(before, catalog);
+        Check(before.Saves.WriteActiveSlot() && before.Saves.WriteProfile(), "4B: slot + profile write");
+
+        Session after = new Session(catalog, 0);
+        Check(after.Saves.LoadActiveSlot() == LoadResult.Loaded && after.Saves.LoadProfile() == LoadResult.Loaded, "4B: slot + profile load");
+        CheckSame(Describe(before.Run), Describe(after.Run), "4B: capture → restore gives identical run state");
+        CheckSame(Describe(before.Persistent), Describe(after.Persistent), "4B: capture → restore gives identical profile");
+        Check(after.Slot.Name == "Tester", "4B: slot name restored");
+
+        SlotSummary summary = after.Saves.GetSlotInfo(0).Header.Summary;
+        Check(summary.SlotName == "Tester" && summary.Coins == 37 && summary.DungeonNumber == 4 && summary.HasActiveRun,
+            "4B: header summary has name, coins, dungeon, active run");
+    }
+
+    private static void UnknownContentIdSkipped()
+    {
+        if (!TryCatalog(out ContentCatalog catalog)) return;
+
+        EditFile(SlotFile(0), root =>
+        {
+            JToken sections = root["Sections"];
+            sections["run.upgrades"]["Payload"]["Held"][0]["Id"] = "Removed-99";
+            ((JArray)sections["run.upgrades"]["Payload"]["Purchased"]).Add("Removed-99");
+            sections["run.weapons"]["Payload"]["Equipped"] = "laser";
+            ((JArray)sections["run.relics"]["Payload"]["Held"]).Add("relic_42");
+        });
+
+        Debug.Log("[SaveSelfTest] (the next 4 'unknown ... skipped' warnings are expected)");
+        Session s = new Session(catalog, 0);
+        Check(s.Saves.LoadActiveSlot() == LoadResult.Loaded, "4B: unknown content IDs don't fail the load");
+        Check(s.Run.HeldCigs.Count == 1 && s.Run.HeldCigs[0].Data == catalog.Cigs[1], "4B: unknown upgrade skipped, known one kept");
+        Check(s.Run.PurchasedCigIds.Count == 3, "4B: unknown purchased ID skipped");
+        Check(s.Run.EquippedWeapon == null && s.Run.OwnedWeapons.Count == 2, "4B: unknown weapon skipped, owned kept");
+        Check(s.Run.UniqueRelicsCollectedThisRun == 2, "4B: unknown relic skipped");
+    }
+
+    private static void RemovedRealSectionLoadsDefault()
+    {
+        if (!TryCatalog(out ContentCatalog catalog)) return;
+
+        EditFile(SlotFile(0), root => ((JObject)root["Sections"]).Remove("run.economy"));
+
+        Session s = new Session(catalog, 0);
+        s.Run.CurrentCoins = 555;
+        Check(s.Saves.LoadActiveSlot() == LoadResult.Loaded, "4B: load with run.economy removed");
+        Check(s.Run.CurrentCoins == 0 && s.Run.MaxCoins == 0 && s.Run.CurrentDungeonLevel == 4,
+            "4B: removed section loads its defaults, the rest still restore");
     }
 
     private static void DeleteAllFiles(int index)

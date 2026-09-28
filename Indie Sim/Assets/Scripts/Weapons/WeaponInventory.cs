@@ -51,6 +51,11 @@ public class WeaponInventory : MonoBehaviour
             return;
         }
 
+        // The loadout is fixed on the prefab for now; mirrored so run.weapons
+        // saves what the player owns (weapon unlocks will add to this).
+        if (GameSession.Instance != null)
+            GameSession.Instance.CurrentRun.OwnedWeapons = new List<WeaponData>(availableWeapons);
+
         // Scene-local (Phase 6) — resume the weapon equipped when this run's
         // previous scene instance was destroyed.
         WeaponData carriedOver = GameSession.Instance != null ? GameSession.Instance.CurrentRun.EquippedWeapon : null;

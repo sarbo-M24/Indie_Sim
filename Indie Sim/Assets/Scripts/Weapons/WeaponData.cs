@@ -4,6 +4,8 @@ using UnityEngine;
 public class WeaponData : ScriptableObject
 {
     [Header("Weapon Info")]
+    [Tooltip("Stable save ID (lowercase, never renamed once shipped). Checked by Tools/Save/Validate Content IDs.")]
+    public string id;
     public string weaponName;
     public Sprite weaponIcon;
     public WeaponType weaponType = WeaponType.Standard;

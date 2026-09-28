@@ -4,7 +4,7 @@ public class RelicManager : MonoBehaviour
 {
     [Header("Relic Tracking - Current Run Only")]
     [Tooltip("8 relics total (0-7). Tracks which ones have been collected this run.")]
-    private bool[] relicsCollectedThisRun = new bool[8];
+    private bool[] relicsCollectedThisRun = new bool[RelicIds.Count];
 
     [Header("Duplicate Relic Reward")]
     [SerializeField] private int coinsForDuplicateRelic = 50;
@@ -27,8 +27,37 @@ public class RelicManager : MonoBehaviour
         // Check if relic achievement is already completed
         CheckRelicAchievementStatus();
 
-        // Reset relics at start of run
-        ResetForNewRun();
+        // Scene-local — resume this run's relics from GameSession.CurrentRun
+        // (empty on a fresh run), same pattern as CoinManager.
+        LoadFromRunStats();
+    }
+
+    private void LoadFromRunStats()
+    {
+        relicsCollectedThisRun = new bool[RelicIds.Count];
+        uniqueRelicsCollectedThisRun = 0;
+
+        if (GameSession.Instance != null)
+        {
+            bool[] held = GameSession.Instance.CurrentRun.RelicsHeld;
+            for (int i = 0; i < relicsCollectedThisRun.Length && i < held.Length; i++)
+            {
+                relicsCollectedThisRun[i] = held[i];
+                if (held[i]) uniqueRelicsCollectedThisRun++;
+            }
+        }
+
+        UpdateRelicUI();
+    }
+
+    // Mirrors state into GameSession.CurrentRun after every mutation so it
+    // survives this object being destroyed and gets saved (run.relics).
+    private void SyncToRunStats()
+    {
+        if (GameSession.Instance == null) return;
+        RunStats run = GameSession.Instance.CurrentRun;
+        run.RelicsHeld = (bool[])relicsCollectedThisRun.Clone();
+        run.UniqueRelicsCollectedThisRun = uniqueRelicsCollectedThisRun;
     }
 
     /// <summary>
@@ -79,6 +108,7 @@ public class RelicManager : MonoBehaviour
         // THIS IS A NEW/UNIQUE RELIC THIS RUN
         relicsCollectedThisRun[relicIndex] = true;
         uniqueRelicsCollectedThisRun++;
+        SyncToRunStats();
 
         if (showDebugInfo)
         {
@@ -213,6 +243,8 @@ public class RelicManager : MonoBehaviour
         }
 
         uniqueRelicsCollectedThisRun = 0;
+        SyncToRunStats();
+        UpdateRelicUI();
 
         // Re-check achievement status (in case it was just unlocked)
         CheckRelicAchievementStatus();

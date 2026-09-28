@@ -2,7 +2,8 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Persistent data. Survives app launches, reset only by an explicit erase-save.
-/// Owned by GameSession.Persistent, loaded/saved as JSON by SaveSystem.
+/// Owned by GameSession.Persistent, saved to profile.json by the global.*
+/// save sections (SaveBootstrap).
 /// </summary>
 [System.Serializable]
 public class PersistentStats
@@ -12,8 +13,5 @@ public class PersistentStats
     public List<string> UnlockedAchievementIds = new List<string>();
     public int TotalRuns;
     public int BestRunDungeonsCleared;
-    public bool DemoCompleted;
-
-    // Guards the one-time PlayerPrefs -> JSON import (SaveSystem).
-    public bool PlayerPrefsMigrated;
+    public bool DemoCompleted; // also the demo dev-panel unlock (global.demo)
 }

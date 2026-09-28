@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0ceb3714083f77f4db687d24d60896e8, type: 3}
   m_Name: MachineGun
   m_EditorClassIdentifier: 
+  id: ak47
   weaponName: AK47
   weaponIcon: {fileID: 0}
   weaponType: 0

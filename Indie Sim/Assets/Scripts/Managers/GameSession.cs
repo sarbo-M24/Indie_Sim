@@ -9,7 +9,10 @@ public class GameSession : MonoBehaviour
     public static GameSession Instance { get; private set; }
 
     public RunStats CurrentRun { get; private set; } = new RunStats();
-    public PersistentStats Persistent { get; private set; }
+    public PersistentStats Persistent { get; private set; } = new PersistentStats();
+
+    /// <summary>The active save slot's own data (survives death). Set when a slot is picked (4C).</summary>
+    public SlotData Slot { get; private set; } = new SlotData();
 
     /// <summary>Slot/profile save files (save-system-spec.md). Built in Awake by SaveBootstrap.</summary>
     public SaveService Saves { get; private set; }
@@ -28,10 +31,14 @@ public class GameSession : MonoBehaviour
 
         Instance = this;
         Saves = SaveBootstrap.Create(this);
-        Persistent = SaveSystem.Load();
+        LegacySaveImport.LoadProfile(Saves, Persistent);
     }
 
-    public void Save() => SaveSystem.Save(Persistent);
+    /// <summary>
+    /// Writes the global profile (achievements, lifetime stats, demo unlock).
+    /// Never touches a slot — slot writes happen only at the save points.
+    /// </summary>
+    public void Save() => Saves.WriteProfile();
 
     /// <summary>
     /// The only reset in the project (Phase 6). Every manager that used to

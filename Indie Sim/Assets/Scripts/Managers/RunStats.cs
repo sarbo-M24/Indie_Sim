@@ -18,8 +18,8 @@ public class RunStats
     // Kills (EnemyKillTracker)
     public int KillsThisRun;
 
-    // Relics (RelicManager)
-    public bool[] RelicsHeld = new bool[8];
+    // Relics (RelicManager) — indexed by Relic.relicIndex, saved as RelicIds
+    public bool[] RelicsHeld = new bool[RelicIds.Count];
     public int UniqueRelicsCollectedThisRun;
 
     // Upgrades (Pack, CigPool)
@@ -28,13 +28,16 @@ public class RunStats
 
     // Weapon loadout + ammo (WeaponInventory, WeaponAmmoManager). WeaponData
     // is a ScriptableObject asset — stable reference across scene loads, safe
-    // as a dictionary key. Never JSON-serialized (only PersistentStats is).
+    // as a dictionary key. Saved by ID (run.weapons), never serialized directly.
     public WeaponData EquippedWeapon;
+    public List<WeaponData> OwnedWeapons = new List<WeaponData>(); // the carried loadout; unlocks will add here
     public Dictionary<WeaponData, int> WeaponAmmo = new Dictionary<WeaponData, int>();
 
     // Dungeon progression (RoguelikeManager.dungeonsClearedCount)
     public int CurrentDungeonLevel = 1;
     public int DungeonsClearedThisRun;
+    public int DungeonSizeIncrement; // RoguelikeManager's random size growth
+    public RunResumePoint ResumePoint = RunResumePoint.LevelStart;
 
     // Run timer
     public float RunElapsedSeconds;
@@ -45,4 +48,11 @@ public class RunStats
 
     // Boss (D1)
     public BossDefinition SelectedBoss;
+}
+
+/// <summary>Where a resumed run picks up (save-system-spec.md §4).</summary>
+public enum RunResumePoint
+{
+    LevelStart, // start CurrentDungeonLevel fresh
+    Store       // in the store after clearing the previous dungeon
 }
