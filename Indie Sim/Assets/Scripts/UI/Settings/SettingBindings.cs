@@ -16,6 +16,7 @@ public enum BoolSetting
     MuteWhenUnfocused,
     DamageNumbers,
     PsychedelicMode,
+    SwapSticks,
 }
 
 /// <summary>
@@ -25,9 +26,15 @@ public enum BoolSetting
 /// </summary>
 public static class SettingBindings
 {
-    public static float Get(FloatSetting setting)
+    private static readonly GameSettings Defaults = new GameSettings();
+
+    public static float Get(FloatSetting setting) => Get(setting, SettingsService.Current);
+    public static float GetDefault(FloatSetting setting) => Get(setting, Defaults);
+    public static bool Get(BoolSetting setting) => Get(setting, SettingsService.Current);
+    public static bool GetDefault(BoolSetting setting) => Get(setting, Defaults);
+
+    private static float Get(FloatSetting setting, GameSettings s)
     {
-        GameSettings s = SettingsService.Current;
         switch (setting)
         {
             case FloatSetting.MasterVolume: return s.masterVolume;
@@ -58,14 +65,14 @@ public static class SettingBindings
         });
     }
 
-    public static bool Get(BoolSetting setting)
+    private static bool Get(BoolSetting setting, GameSettings s)
     {
-        GameSettings s = SettingsService.Current;
         switch (setting)
         {
             case BoolSetting.MuteWhenUnfocused: return s.muteWhenUnfocused;
             case BoolSetting.DamageNumbers: return s.damageNumbers;
             case BoolSetting.PsychedelicMode: return s.psychedelicMode;
+            case BoolSetting.SwapSticks: return s.swapSticks;
             default: return false;
         }
     }
@@ -79,6 +86,7 @@ public static class SettingBindings
                 case BoolSetting.MuteWhenUnfocused: s.muteWhenUnfocused = value; break;
                 case BoolSetting.DamageNumbers: s.damageNumbers = value; break;
                 case BoolSetting.PsychedelicMode: s.psychedelicMode = value; break;
+                case BoolSetting.SwapSticks: s.swapSticks = value; break;
             }
         });
     }

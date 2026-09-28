@@ -9,14 +9,16 @@ public class MainMenu : MonoBehaviour
     [SerializeField] private string Scene1 = "CasualMode";
     [SerializeField] private string Scene2 = "HardcoreMode";
 
-    [Header("Settings")]
-    [Tooltip("The object holding the menu's buttons. Gets gamepad navigation, and hides while Settings is open.")]
+    [Header("Settings / Controls")]
+    [Tooltip("The object holding the menu's buttons. Gets gamepad navigation, and hides while Settings or Controls is open.")]
     [SerializeField] private GameObject menuButtons;
     [SerializeField] private SettingsPanel settingsPanel;
+    [SerializeField] private ControlsPanel controlsPanel;
 
     private void Start()
     {
         if (settingsPanel != null) settingsPanel.gameObject.SetActive(false);
+        if (controlsPanel != null) controlsPanel.gameObject.SetActive(false);
 
         if (menuButtons != null && !menuButtons.TryGetComponent(out GamepadMenuPanel _))
             menuButtons.AddComponent<GamepadMenuPanel>();
@@ -35,18 +37,25 @@ public class MainMenu : MonoBehaviour
     }
 
     /// <summary>Wire to the main menu's Settings button.</summary>
-    public void OpenSettings()
+    public void OpenSettings() => OpenSubMenu(settingsPanel);
+
+    /// <summary>Wire to the main menu's Controls button.</summary>
+    public void OpenControls() => OpenSubMenu(controlsPanel);
+
+    // Hides the menu buttons while the sub-menu is open and brings them back
+    // (focus on the button that opened it) when it closes.
+    private void OpenSubMenu(TabbedMenuPanel panel)
     {
-        if (settingsPanel == null) return;
+        if (panel == null) return;
 
         EventSystem eventSystem = EventSystem.current;
-        GameObject settingsButton = eventSystem != null ? eventSystem.currentSelectedGameObject : null;
+        GameObject openedFrom = eventSystem != null ? eventSystem.currentSelectedGameObject : null;
 
-        settingsPanel.Open(() =>
+        panel.Open(() =>
         {
             if (menuButtons != null) menuButtons.SetActive(true);
-            if (settingsButton != null && eventSystem != null && InputManager.UsingGamepad)
-                eventSystem.SetSelectedGameObject(settingsButton);
+            if (openedFrom != null && eventSystem != null && InputManager.UsingGamepad)
+                eventSystem.SetSelectedGameObject(openedFrom);
         });
 
         if (menuButtons != null) menuButtons.SetActive(false);

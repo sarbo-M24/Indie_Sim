@@ -40,6 +40,8 @@ public class ToggleRow : MonoBehaviour
         UpdateText(isOn);
     }
 
+    public void ResetToDefault() => SettingBindings.Set(setting, SettingBindings.GetDefault(setting));
+
     private void OnSettingsChanged(GameSettings settings) => Refresh();
 
     private void Refresh()

@@ -6,16 +6,13 @@ using UnityEngine.InputSystem;
 /// <summary>
 /// Manages the player's current weapon loadout and handles switching between weapons.
 /// This is the "backpack" - it knows what guns you're carrying and which one is active.
-/// Supports Tab key and Mouse Scroll Wheel for switching.
+/// Switch Weapon (mouse wheel / Y by default, rebindable) cycles to the next weapon.
 /// </summary>
 public class WeaponInventory : MonoBehaviour
 {
     [Header("Weapon Loadout")]
     [SerializeField] private WeaponData[] availableWeapons; // The guns you're carrying this run
     [SerializeField] private int currentWeaponIndex = 0;
-
-    [Header("Input Settings")]
-    [SerializeField] private float scrollThreshold = 0.1f; // Minimum scroll value to register
 
     private WeaponData currentWeapon;
 
@@ -27,20 +24,8 @@ public class WeaponInventory : MonoBehaviour
     #region Unity Lifecycle
 
     // Shared instance (InputManager) — subscribe per enable so a destroyed player leaves no callbacks behind.
-    private void OnEnable()
-    {
-        // Tab / Y - cycles to next weapon
-        InputManager.Controls.Player.SwitchWeapon.performed += OnSwitchWeapon;
-
-        // Mouse scroll wheel / shoulders - scrolls through weapons
-        InputManager.Controls.Player.SwitchWeaponScroll.performed += OnScrollWeapon;
-    }
-
-    private void OnDisable()
-    {
-        InputManager.Controls.Player.SwitchWeapon.performed -= OnSwitchWeapon;
-        InputManager.Controls.Player.SwitchWeaponScroll.performed -= OnScrollWeapon;
-    }
+    private void OnEnable() => InputManager.Controls.Player.SwitchWeapon.performed += OnSwitchWeapon;
+    private void OnDisable() => InputManager.Controls.Player.SwitchWeapon.performed -= OnSwitchWeapon;
 
     private void OnSwitchWeapon(InputAction.CallbackContext context) => SwitchToNextWeapon();
 
@@ -48,34 +33,6 @@ public class WeaponInventory : MonoBehaviour
     {
         // Find the first unlocked weapon and equip it
         InitializeStartingWeapon();
-    }
-
-    #endregion
-
-    #region Input Handling
-
-    /// <summary>
-    /// Handles mouse scroll wheel input for weapon switching.
-    /// Scroll up = next weapon, Scroll down = previous weapon.
-    /// </summary>
-    private void OnScrollWeapon(InputAction.CallbackContext context)
-    {
-        float scrollValue = context.ReadValue<float>();
-
-        // Ignore tiny scroll values (noise)
-        if (Mathf.Abs(scrollValue) < scrollThreshold)
-            return;
-
-        // Scroll up (positive value) = next weapon
-        if (scrollValue > 0)
-        {
-            SwitchToNextWeapon();
-        }
-        // Scroll down (negative value) = previous weapon
-        else if (scrollValue < 0)
-        {
-            SwitchToPreviousWeapon();
-        }
     }
 
     #endregion
@@ -143,8 +100,8 @@ public class WeaponInventory : MonoBehaviour
     }
 
     /// <summary>
-    /// Switches to the next weapon in the loadout (cycles forward).
-    /// Useful for Tab key or scroll up.
+    /// Switches to the next weapon in the loadout (cycles forward). The only
+    /// switch direction — the Switch Weapon action calls this.
     /// </summary>
     public void SwitchToNextWeapon()
     {
@@ -152,18 +109,6 @@ public class WeaponInventory : MonoBehaviour
 
         int nextIndex = (currentWeaponIndex + 1) % availableWeapons.Length;
         SwitchToWeapon(nextIndex);
-    }
-
-    /// <summary>
-    /// Switches to the previous weapon in the loadout (cycles backward).
-    /// Useful for scroll down.
-    /// </summary>
-    public void SwitchToPreviousWeapon()
-    {
-        if (availableWeapons.Length == 0) return;
-
-        int prevIndex = (currentWeaponIndex - 1 + availableWeapons.Length) % availableWeapons.Length;
-        SwitchToWeapon(prevIndex);
     }
 
     #endregion

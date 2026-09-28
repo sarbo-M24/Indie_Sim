@@ -26,6 +26,7 @@ public static class InputManager
     private static PlayerControls controls;
     private static readonly HashSet<object> playerBlockers = new HashSet<object>();
     private static Vector2 lastStickAim = Vector2.up;
+    private static bool? appliedStickSwap;
 
     public static PlayerControls Controls
     {
@@ -49,6 +50,7 @@ public static class InputManager
         controls = null;
         playerBlockers.Clear();
         lastStickAim = Vector2.up;
+        appliedStickSwap = null;
         UsingGamepad = false;
     }
 
@@ -60,8 +62,19 @@ public static class InputManager
         controls = new PlayerControls();
 
         // Rebinds from the Controls tab (saved by SettingsService).
+        // An override for an action that no longer exists (e.g. the removed
+        // SwitchWeaponScroll) must not stop the game from starting.
         string overrides = SettingsService.Current.bindingOverridesJson;
-        if (!string.IsNullOrEmpty(overrides)) controls.asset.LoadBindingOverridesFromJson(overrides);
+        if (!string.IsNullOrEmpty(overrides))
+        {
+            try { controls.asset.LoadBindingOverridesFromJson(overrides); }
+            catch (System.Exception e) { Debug.LogWarning($"[InputManager] Couldn't load saved key bindings, using defaults: {e.Message}"); }
+        }
+
+        // After the saved overrides, so the Swap Sticks setting always wins
+        // over any stick override that ended up in bindingOverridesJson.
+        ApplyStickSwap(SettingsService.Current);
+        SettingsService.OnChanged += ApplyStickSwap;
 
         controls.UI.Enable();
         controls.Player.Enable();
@@ -75,11 +88,37 @@ public static class InputManager
     {
         InputSystem.onActionChange -= OnActionChange;
         SceneManager.sceneLoaded -= OnSceneLoaded;
+        SettingsService.OnChanged -= ApplyStickSwap;
         Application.quitting -= Shutdown;
 
         controls?.Disable();
         controls?.Dispose();
         controls = null;
+    }
+
+    // Swap Sticks (Controls ▸ Gamepad): Move reads the right stick and Aim the
+    // left. Done as overrides on the two gamepad stick bindings, so every
+    // script reading Move / Aim follows; menus keep navigating on the left stick.
+    private static void ApplyStickSwap(GameSettings settings)
+    {
+        if (appliedStickSwap == settings.swapSticks) return;
+        appliedStickSwap = settings.swapSticks;
+
+        SetGamepadBinding(controls.Player.Move, settings.swapSticks ? "<Gamepad>/rightStick" : null);
+        SetGamepadBinding(controls.Player.Aim, settings.swapSticks ? "<Gamepad>/leftStick" : null);
+    }
+
+    // path null = back to the asset's default binding.
+    private static void SetGamepadBinding(InputAction action, string path)
+    {
+        for (int i = 0; i < action.bindings.Count; i++)
+        {
+            InputBinding binding = action.bindings[i];
+            if (binding.isComposite || binding.isPartOfComposite || binding.groups == null || !binding.groups.Contains("Gamepad")) continue;
+
+            if (path == null) action.RemoveBindingOverride(i);
+            else action.ApplyBindingOverride(i, path);
+        }
     }
 
     /// <summary>Turns the Player map off while any source holds a block (shop, pause menu).</summary>

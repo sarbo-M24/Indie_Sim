@@ -6276,7 +6276,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 5827dbebab0bf6f4583880f757b6faaa, type: 2}
   - {fileID: 11400000, guid: 56c3f4ef79cead346984d21b7544d9d8, type: 2}
   currentWeaponIndex: 1
-  scrollThreshold: 0.1
 --- !u!114 &7322266951050164843
 MonoBehaviour:
   m_ObjectHideFlags: 0

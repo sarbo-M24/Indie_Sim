@@ -6,6 +6,7 @@ public class OptionsMenu : MonoBehaviour
     [SerializeField] private GameObject optionsPanel; // The options menu UI panel
     [SerializeField] private GameObject pauseOverlay; // Optional dark overlay when paused
     [SerializeField] private SettingsPanel settingsPanel; // Opened by the pause menu's Settings button
+    [SerializeField] private ControlsPanel controlsPanel; // Opened by the pause menu's Controls button
 
     [Header("Scene Management")]
     [SerializeField] private string mainMenuSceneName = "MainMenu"; // Name of your main menu scene
@@ -49,6 +50,7 @@ public class OptionsMenu : MonoBehaviour
         }
 
         if (settingsPanel != null) settingsPanel.gameObject.SetActive(false);
+        if (controlsPanel != null) controlsPanel.gameObject.SetActive(false);
 
         // Update UI elements
         UpdateSoundButtonDisplay();
@@ -126,22 +128,26 @@ public class OptionsMenu : MonoBehaviour
         Debug.Log("Game Resumed - Options Menu Closed");
     }
 
-    /// <summary>
-    /// Wire to the pause menu's Settings button. Hides the pause buttons
-    /// while Settings is open and brings them back (focus on Settings) after.
-    /// </summary>
-    public void OpenSettings()
+    /// <summary>Wire to the pause menu's Settings button.</summary>
+    public void OpenSettings() => OpenSubMenu(settingsPanel);
+
+    /// <summary>Wire to the pause menu's Controls button.</summary>
+    public void OpenControls() => OpenSubMenu(controlsPanel);
+
+    // Hides the pause buttons while the sub-menu is open and brings them back
+    // (focus on the button that opened it) when it closes.
+    private void OpenSubMenu(TabbedMenuPanel panel)
     {
-        if (settingsPanel == null || !isGamePaused) return;
+        if (panel == null || !isGamePaused) return;
 
         UnityEngine.EventSystems.EventSystem eventSystem = UnityEngine.EventSystems.EventSystem.current;
-        GameObject settingsButton = eventSystem != null ? eventSystem.currentSelectedGameObject : null;
+        GameObject openedFrom = eventSystem != null ? eventSystem.currentSelectedGameObject : null;
 
-        settingsPanel.Open(() =>
+        panel.Open(() =>
         {
             if (optionsPanel != null) optionsPanel.SetActive(true);
-            if (settingsButton != null && eventSystem != null && InputManager.UsingGamepad)
-                eventSystem.SetSelectedGameObject(settingsButton);
+            if (openedFrom != null && eventSystem != null && InputManager.UsingGamepad)
+                eventSystem.SetSelectedGameObject(openedFrom);
         });
 
         if (optionsPanel != null) optionsPanel.SetActive(false);
@@ -277,8 +283,8 @@ public class OptionsMenu : MonoBehaviour
         // complete) — the pause menu would just sit on top of it.
         if (!isGamePaused && PauseController.IsFrozen) return;
 
-        // This press is closing Settings (back to the pause menu), not resuming.
-        if (SettingsPanel.BlocksPauseInput) return;
+        // This press is closing Settings/Controls (back to the pause menu), not resuming.
+        if (TabbedMenuPanel.BlocksPauseInput) return;
 
         ToggleOptionsMenu();
     }

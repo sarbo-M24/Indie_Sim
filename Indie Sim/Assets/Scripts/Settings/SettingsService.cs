@@ -59,9 +59,6 @@ public static class SettingsService
         OnChanged?.Invoke(current);
     }
 
-    public static void ResetAudio() => Change(s => s.ResetAudio());
-    public static void ResetGameplay() => Change(s => s.ResetGameplay());
-
     /// <summary>Writes to disk if anything changed since the last save.</summary>
     public static void Save()
     {

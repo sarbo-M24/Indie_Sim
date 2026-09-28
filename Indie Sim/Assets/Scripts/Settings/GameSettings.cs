@@ -29,26 +29,5 @@ public class GameSettings
 
     // ── Controls ──
     public string bindingOverridesJson = "";
-
-    public GameSettings Clone() => (GameSettings)MemberwiseClone();
-
-    public void ResetAudio()
-    {
-        GameSettings d = new GameSettings();
-        masterVolume = d.masterVolume;
-        musicVolume = d.musicVolume;
-        sfxVolume = d.sfxVolume;
-        uiVolume = d.uiVolume;
-        muteWhenUnfocused = d.muteWhenUnfocused;
-    }
-
-    public void ResetGameplay()
-    {
-        GameSettings d = new GameSettings();
-        damageNumbers = d.damageNumbers;
-        psychedelicMode = d.psychedelicMode;
-        screenShake = d.screenShake;
-        cameraLead = d.cameraLead;
-        flashIntensity = d.flashIntensity;
-    }
+    public bool swapSticks = false;     // gamepad: move on the right stick, aim on the left
 }

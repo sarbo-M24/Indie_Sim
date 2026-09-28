@@ -61,15 +61,6 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "SwitchWeaponScroll",
-                    "type": "Value",
-                    "id": "e1ddbb8a-e615-4b14-937e-5e75cd51cedf",
-                    "expectedControlType": "Axis",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": true
-                },
-                {
                     "name": "Stomp",
                     "type": "Button",
                     "id": "0134e9d2-4432-4a90-a709-eb596881ac55",
@@ -202,7 +193,7 @@
                 {
                     "name": "",
                     "id": "73ad412b-a5ea-4006-aae4-43e7e26a9d13",
-                    "path": "<Keyboard>/tab",
+                    "path": "<Mouse>/scroll/y",
                     "interactions": "",
                     "processors": "",
                     "groups": "Keyboard&Mouse",
@@ -242,50 +233,6 @@
                     "action": "Dash",
                     "isComposite": false,
                     "isPartOfComposite": false
-                },
-                {
-                    "name": "",
-                    "id": "f77f6c2c-86ee-4d1b-862f-ce438144fb34",
-                    "path": "<Mouse>/scroll/y",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "Keyboard&Mouse",
-                    "action": "SwitchWeaponScroll",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "Shoulders",
-                    "id": "72663630-e8e2-4c14-91af-0e5c0b50fa7b",
-                    "path": "1DAxis",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "SwitchWeaponScroll",
-                    "isComposite": true,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "negative",
-                    "id": "f53e4a64-4ed8-4f29-85f0-f8664483a978",
-                    "path": "<Gamepad>/leftShoulder",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "Gamepad",
-                    "action": "SwitchWeaponScroll",
-                    "isComposite": false,
-                    "isPartOfComposite": true
-                },
-                {
-                    "name": "positive",
-                    "id": "751b8e73-35a1-46d0-b7f0-43aaacd56e13",
-                    "path": "<Gamepad>/rightShoulder",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "Gamepad",
-                    "action": "SwitchWeaponScroll",
-                    "isComposite": false,
-                    "isPartOfComposite": true
                 },
                 {
                     "name": "",

@@ -10,7 +10,8 @@
 - **`PlayerControls.inputactions`:**
   - Control schemes `Keyboard&Mouse` and `Gamepad`.
   - Player map adds `Aim` (right stick, `StickDeadzone(min=0.2)`) and `Reload` (R / X).
-  - Gamepad bindings on existing actions: Move = left stick (`StickDeadzone(min=0.15)`), Fire = RT, **Dash = LT** (not "LT or RB"), Stomp = A, SwitchWeapon = Y, SwitchWeaponScroll = LB/RB as a 1D axis.
+  - Gamepad bindings on existing actions: Move = left stick (`StickDeadzone(min=0.15)`), Fire = RT, **Dash = LT** (not "LT or RB"), Stomp = A, SwitchWeapon = Y.
+  - **Weapon switching is one action (2026-09-28):** `SwitchWeaponScroll` was merged into `SwitchWeapon`, which always goes to the next weapon. Defaults are **Mouse Wheel** (`<Mouse>/scroll/y`, either direction) and **Y**. Tab and LB/RB no longer switch weapons. `WeaponInventory.SwitchToPreviousWeapon` and `scrollThreshold` were removed. The HUD key hint `Controls (2)` now reads "Scroll".
   - New **UI map**: Navigate, Submit, Cancel, Point, Click, RightClick, MiddleClick, ScrollWheel and **Pause (Esc / Start)**.
   - The "empty-path Stomp binding" from the plan was already fine (Space).
 - **`Scripts/Input/InputManager.cs`:** a **static class**, not the planned `InputManager.Instance` MonoBehaviour under `[Persistent]`, so it needs no Boot setup.
@@ -116,6 +117,46 @@
 - **Code changes that came with the build:**
   - `GamepadMenuPanel` now keeps a stack of open panels, and only the most recently opened one holds focus. Without this, the main menu would steal focus from the Achievements panel.
   - `AchievementMenuController` adds `GamepadMenuPanel` to the Achievements panel.
+
+**Controls (key bindings) panel (2026-09-28, built by Claude; compiles, not yet play-tested):**
+- **Opening it:** it's a separate panel from Settings. The pause menu (`Options Panel`) has a dedicated **Controls** button → `OptionsMenu.OpenControls`. The main menu has no Controls button, as asked.
+  - **Main menu (2026-09-28):** added a `Controls btn` → `MainMenu.OpenControls`, plus a Controls Panel instance as the canvas's last child. `MainMenu` gained a `controlsPanel` field and a shared `OpenSubMenu`.
+  - Settings and Controls now stack in the right-edge column above Achievements: Achievements at y 116, Settings at 276, Controls at 436 (bottom-right anchor).
+  - **Fix:** the Settings button used to sit under the Help Panel, which draws on top and was blocking clicks on it.
+  - Pause layout: Resume 0, Settings −115, Controls −220, Main Menu −320.
+- **`Scripts/UI/TabbedMenuPanel.cs`:** new shared base class for the tabbed panels.
+  - `SettingsPanel` and `ControlsPanel` both derive from it. It holds the tabs, Back, Reset, LB/RB tab switching, the Player-map block and the cursor.
+  - It keeps the selected row visible inside a `ScrollRect`.
+  - `BlocksPauseInput` moved here.
+  - The serialized field names are unchanged, so the existing Settings Panel prefab still loads its wiring.
+- **Reset to defaults is now per row:** it resets every row on the current tab. `GameSettings.ResetAudio/ResetGameplay` were removed; `SettingBindings.GetDefault` replaces them.
+- **`Scripts/UI/Controls/`:**
+  - **`RebindRow`:** targets a binding by action, group and composite part. A fixed row keeps its button non-interactable.
+  - **`BindingLabels`:** shows Xbox names by default, and PlayStation names when a DualShock/DualSense is connected.
+  - **`ControlsPanel`:** runs `PerformInteractiveRebinding`, restricted by device.
+    - Esc or Start cancels.
+    - If the key is already used on the same tab, the two bindings swap.
+    - The UI map is off while it waits for a key.
+    - Overrides are saved to `bindingOverridesJson`, and `InputManager` loads them at startup.
+- **`Prefabs/UI/Controls Panel.prefab`:** "KEYBOARD & MOUSE" and "GAMEPAD" tabs, each a scroll list with a slim scrollbar. Placeholder art.
+  - **Keyboard & Mouse:** Move Up/Down/Left/Right, Fire, Dash, Stomp, Reload and Switch Weapon (Mouse Wheel).
+  - **Gamepad:** Fire, Dash, Stomp, Reload and Switch Weapon (Y).
+  - Every row can be rebound; there are no fixed or greyed-out rows. Move and Aim on the sticks, and Pause, aren't listed.
+  - **Swap Sticks (Move / Aim)** toggle at the bottom of the Gamepad tab (2026-09-28).
+    - The setting `GameSettings.swapSticks` is shown with a `ToggleRow` (`BoolSetting.SwapSticks`).
+    - `InputManager.ApplyStickSwap` applies it as overrides on the gamepad bindings of Move and Aim, so Move reads the right stick and Aim the left. It runs at startup after the saved overrides, and again on every settings change.
+    - The setting always wins over any stick override saved in `bindingOverridesJson`.
+    - Each action keeps its own dead zone (Move 0.15, Aim 0.2), and menus still navigate with the left stick.
+    - The Gamepad tab's Reset to defaults turns it off.
+  - On the keyboard tab, scrolling the wheel while it's listening binds the wheel. The listener only accepts buttons, so `ControlsPanel` catches the wheel itself.
+- **Test:**
+  - Pause → Controls, then LB/RB between tabs.
+  - Rebind Dash to Space: Stomp should take Shift (the swap).
+  - Esc or Start cancels a rebind without closing the panel.
+  - Reset to defaults restores the tab.
+  - B or Esc goes back to the pause menu.
+  - A rebind survives restarting Play mode.
+  - On the keyboard tab, a pad user scrolls down to see the fixed rows.
 
 ### Settings panel — setup checklist (reference; done by Claude, see above)
 

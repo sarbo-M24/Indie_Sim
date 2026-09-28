@@ -49,6 +49,8 @@ public class SliderRow : MonoBehaviour
         UpdateText(value);
     }
 
+    public void ResetToDefault() => SettingBindings.Set(setting, SettingBindings.GetDefault(setting));
+
     // Picks up Reset to defaults and changes made elsewhere (e.g. the pause
     // menu's Sound button) without re-firing onValueChanged.
     private void OnSettingsChanged(GameSettings settings) => Refresh();
