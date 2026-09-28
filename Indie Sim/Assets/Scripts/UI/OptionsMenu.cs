@@ -1,15 +1,11 @@
 using UnityEngine;
-using UnityEngine.Audio;
 
 public class OptionsMenu : MonoBehaviour
 {
     [Header("Menu References")]
     [SerializeField] private GameObject optionsPanel; // The options menu UI panel
     [SerializeField] private GameObject pauseOverlay; // Optional dark overlay when paused
-
-    [Header("Audio Settings")]
-    [SerializeField] private AudioMixerGroup masterAudioMixer; // Optional: for advanced audio control
-    [SerializeField] private AudioSource[] allAudioSources; // Array of audio sources to control
+    [SerializeField] private SettingsPanel settingsPanel; // Opened by the pause menu's Settings button
 
     [Header("Scene Management")]
     [SerializeField] private string mainMenuSceneName = "MainMenu"; // Name of your main menu scene
@@ -21,8 +17,7 @@ public class OptionsMenu : MonoBehaviour
     public string MainMenu = "Main Menu";
     // Private variables
     private bool isGamePaused = false;
-    private bool isSoundEnabled = true;
-    private float originalTimeScale = 1f;
+    private float volumeBeforeMute = 1f;
 
     // Events for extensibility
     public System.Action OnGamePaused;
@@ -38,13 +33,6 @@ public class OptionsMenu : MonoBehaviour
 
     private void InitializeOptionsMenu()
     {
-        // Store original time scale
-        originalTimeScale = Time.timeScale;
-
-        // Load saved sound preference
-        isSoundEnabled = PlayerPrefs.GetInt("SoundEnabled", 1) == 1;
-        ApplySoundSettings();
-
         // Make sure options panel is hidden at start
         if (optionsPanel != null)
         {
@@ -59,6 +47,8 @@ public class OptionsMenu : MonoBehaviour
         {
             pauseOverlay.SetActive(false);
         }
+
+        if (settingsPanel != null) settingsPanel.gameObject.SetActive(false);
 
         // Update UI elements
         UpdateSoundButtonDisplay();
@@ -91,7 +81,7 @@ public class OptionsMenu : MonoBehaviour
         if (isGamePaused) return;
 
         isGamePaused = true;
-        Time.timeScale = 0f; // Pause the game
+        PauseController.SetFrozen(this, true);
 
         // Show options menu
         if (optionsPanel != null)
@@ -118,7 +108,7 @@ public class OptionsMenu : MonoBehaviour
         if (!isGamePaused) return;
 
         isGamePaused = false;
-        Time.timeScale = 1f; // Resume the game
+        PauseController.SetFrozen(this, false);
         // Hide options menu
         if (optionsPanel != null)
         {
@@ -137,18 +127,36 @@ public class OptionsMenu : MonoBehaviour
     }
 
     /// <summary>
-    /// Toggle sound on/off
+    /// Wire to the pause menu's Settings button. Hides the pause buttons
+    /// while Settings is open and brings them back (focus on Settings) after.
+    /// </summary>
+    public void OpenSettings()
+    {
+        if (settingsPanel == null || !isGamePaused) return;
+
+        UnityEngine.EventSystems.EventSystem eventSystem = UnityEngine.EventSystems.EventSystem.current;
+        GameObject settingsButton = eventSystem != null ? eventSystem.currentSelectedGameObject : null;
+
+        settingsPanel.Open(() =>
+        {
+            if (optionsPanel != null) optionsPanel.SetActive(true);
+            if (settingsButton != null && eventSystem != null && InputManager.UsingGamepad)
+                eventSystem.SetSelectedGameObject(settingsButton);
+        });
+
+        if (optionsPanel != null) optionsPanel.SetActive(false);
+    }
+
+    /// <summary>
+    /// Toggle sound on/off. Mutes via the Master volume setting (AudioManager
+    /// applies it); stands in until the settings panel's volume sliders exist.
     /// </summary>
     public void ToggleSound()
     {
-        isSoundEnabled = !isSoundEnabled;
-
-        // Save preference
-        PlayerPrefs.SetInt("SoundEnabled", isSoundEnabled ? 1 : 0);
-        PlayerPrefs.Save();
-
-        // Apply sound settings
-        ApplySoundSettings();
+        bool mute = IsSoundEnabled();
+        if (mute) volumeBeforeMute = SettingsService.Current.masterVolume;
+        SettingsService.Change(s => s.masterVolume = mute ? 0f : Mathf.Max(volumeBeforeMute, 0.05f));
+        SettingsService.Save();
 
         // Update UI
         UpdateSoundButtonDisplay();
@@ -156,7 +164,7 @@ public class OptionsMenu : MonoBehaviour
         // Trigger event
         OnSoundToggled?.Invoke();
 
-        Debug.Log($"Sound {(isSoundEnabled ? "Enabled" : "Disabled")}");
+        Debug.Log($"Sound {(IsSoundEnabled() ? "Enabled" : "Disabled")}");
     }
 
     /// <summary>
@@ -170,7 +178,7 @@ public class OptionsMenu : MonoBehaviour
         OnRetryLevel?.Invoke();
 
         // Resume time before reloading scene
-        Time.timeScale = originalTimeScale;
+        PauseController.ResetAll();
 
         // The dungeon clears in place — there's no separate "level" scene to
         // reload, so restarting the level means restarting the run (D2).
@@ -188,7 +196,7 @@ public class OptionsMenu : MonoBehaviour
         OnExitToMainMenu?.Invoke();
 
         // Resume time before changing scenes
-        Time.timeScale = originalTimeScale;
+        PauseController.ResetAll();
 
         // Return to main menu — funnels through ReturnToMainMenu() so the
         // abandoned run is folded into lifetime stats (D2 abort path).
@@ -199,34 +207,10 @@ public class OptionsMenu : MonoBehaviour
 
     #region Audio Management
 
-    private void ApplySoundSettings()
-    {
-        float volumeLevel = isSoundEnabled ? 1f : 0f;
-
-        // Method 1: Using Audio Mixer (Recommended)
-        if (masterAudioMixer != null)
-        {
-            masterAudioMixer.audioMixer.SetFloat("MasterVolume", isSoundEnabled ? 0f : -80f);
-        }
-
-        // Method 2: Individual Audio Sources (Fallback)
-        if (allAudioSources != null && allAudioSources.Length > 0)
-        {
-            foreach (AudioSource audioSource in allAudioSources)
-            {
-                if (audioSource != null)
-                {
-                    audioSource.mute = !isSoundEnabled;
-                }
-            }
-        }
-
-        // Method 3: Global Audio Listener (Simple but affects everything)
-        AudioListener.volume = volumeLevel;
-    }
-
     private void UpdateSoundButtonDisplay()
     {
+        bool isSoundEnabled = IsSoundEnabled();
+
         if (soundButtonText != null)
         {
             soundButtonText.text = $"Sound: {(isSoundEnabled ? "ON" : "OFF")}";
@@ -246,7 +230,7 @@ public class OptionsMenu : MonoBehaviour
     #region Public Getters (for other systems to check state)
 
     public bool IsGamePaused() { return isGamePaused; }
-    public bool IsSoundEnabled() { return isSoundEnabled; }
+    public bool IsSoundEnabled() { return SettingsService.Current.masterVolume > 0f; }
 
     #endregion
 
@@ -278,13 +262,23 @@ public class OptionsMenu : MonoBehaviour
     // Input blocking, cursor and gamepad focus while open are the panel's
     // GamepadMenuPanel's job (added in InitializeOptionsMenu).
     private void OnEnable() => InputManager.Controls.UI.Pause.performed += OnPausePressed;
-    private void OnDisable() => InputManager.Controls.UI.Pause.performed -= OnPausePressed;
+
+    private void OnDisable()
+    {
+        InputManager.Controls.UI.Pause.performed -= OnPausePressed;
+
+        // Destroyed while paused (scene change) — don't leave the freeze behind.
+        PauseController.SetFrozen(this, false);
+    }
 
     private void OnPausePressed(UnityEngine.InputSystem.InputAction.CallbackContext ctx)
     {
-        // Something else already froze the game (death screen, demo complete) —
-        // pausing over it and resuming would set timeScale back to 1 under it.
-        if (!isGamePaused && Time.timeScale == 0f) return;
+        // Something else already froze the game (death screen, countdown, demo
+        // complete) — the pause menu would just sit on top of it.
+        if (!isGamePaused && PauseController.IsFrozen) return;
+
+        // This press is closing Settings (back to the pause menu), not resuming.
+        if (SettingsPanel.BlocksPauseInput) return;
 
         ToggleOptionsMenu();
     }

@@ -30,6 +30,11 @@ public class DamageIndicator : MonoBehaviour
     [SerializeField] private float flickerInterval = 0.06f; // Time between ON/OFF
 
 
+    // The Flash intensity setting (photosensitivity) blends the flash toward
+    // the normal vignette: 0 = no visible flash, 1 = as authored.
+    private float ScaledFlashIntensity => Mathf.Lerp(normalIntensity, flashIntensity, SettingsService.Current.flashIntensity);
+    private Color ScaledDamageColor => Color.Lerp(normalColor, damageColor, SettingsService.Current.flashIntensity);
+
     private Vignette vignette;
     private bool isFlashing = false;
     private bool isHitstopped = false;
@@ -103,13 +108,13 @@ public class DamageIndicator : MonoBehaviour
         for (int i = 0; i < flashCount; i++)
         {
             // Flash to red
-            yield return StartCoroutine(LerpVignetteColor(damageColor, flashIntensity, flashDuration));
+            yield return StartCoroutine(LerpVignetteColor(ScaledDamageColor, ScaledFlashIntensity, flashDuration));
 
             // Wait briefly
             yield return new WaitForSeconds(flashInterval);
 
             // Flash back to black (but keep intensity for a moment)
-            yield return StartCoroutine(LerpVignetteColor(normalColor, flashIntensity, flashDuration));
+            yield return StartCoroutine(LerpVignetteColor(normalColor, ScaledFlashIntensity, flashDuration));
 
             // Wait before next flash
             if (i < flashCount - 1) // Don't wait after the last flash
@@ -131,8 +136,9 @@ public class DamageIndicator : MonoBehaviour
     {
         isHitstopped = true;
 
-        float originalTimeScale = Time.timeScale;
-        Time.timeScale = hitstopIntensity;
+        // PauseController owns timeScale: ending the hit-stop can't undo a
+        // pause opened during it.
+        PauseController.BeginHitStop(hitstopIntensity);
 
         // ✅ Trigger camera shake using unscaled time
         CameraShake.Instance?.ShakeCamera(3f, hitstopDuration);
@@ -140,7 +146,7 @@ public class DamageIndicator : MonoBehaviour
 
         yield return new WaitForSecondsRealtime(hitstopDuration);
 
-        Time.timeScale = originalTimeScale;
+        PauseController.EndHitStop();
         isHitstopped = false;
     }
 
@@ -225,7 +231,7 @@ public class DamageIndicator : MonoBehaviour
             StopAllCoroutines();
             vignette.color.value = normalColor;
             vignette.intensity.value = normalIntensity;
-            Time.timeScale = 1f; // ✅ Reset time scale
+            if (isHitstopped) PauseController.EndHitStop();
             isFlashing = false;
             isHitstopped = false;
         }

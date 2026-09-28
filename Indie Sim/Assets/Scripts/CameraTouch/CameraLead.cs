@@ -193,6 +193,7 @@ public class CinemachineCursorLead : MonoBehaviour
 
         // Apply cursor lead + feedback (recoil or shake) to camera target position
         Vector3 feedbackOffset = (feedbackMode == CameraFeedbackMode.Recoil) ? recoilOffset : shakeOffset;
+        feedbackOffset *= SettingsService.Current.screenShake;
         Vector3 finalPosition = targetPosition + feedbackOffset;
 
         // Smoothly move the camera target to the calculated position
@@ -227,8 +228,8 @@ public class CinemachineCursorLead : MonoBehaviour
         // Clamp the distance
         Vector3 cursorOffset = Vector3.ClampMagnitude(playerToMouse, maxLeadDistance);
 
-        // Apply cursor influence
-        cursorOffset *= cursorInfluence;
+        // Apply cursor influence, scaled by the Camera lead setting
+        cursorOffset *= cursorInfluence * SettingsService.Current.cameraLead;
 
         // Target position = player position + cursor offset
         targetPosition = player.position + cursorOffset;

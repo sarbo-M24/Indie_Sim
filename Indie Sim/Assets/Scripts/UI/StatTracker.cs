@@ -61,7 +61,9 @@ public class StatTracker : MonoBehaviour
         if (coinsText != null)
             coinsText.text = $"Coins : {totalCoins}";
 
-        Time.timeScale = 0f; // Pause game on death
+        // No freeze here: this runs the moment the player dies, before
+        // PlayerHealth's (scaled-time) deathDelay — freezing now would stop
+        // that delay forever. PlayerHealth freezes when the death panel shows.
 
         Debug.Log($"[StatTracker] Death stats — Kills: {totalKills} | Coins: {totalCoins}");
     }

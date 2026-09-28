@@ -12,6 +12,11 @@ public class AchievementMenuController : MonoBehaviour
 
     private void Start()
     {
+        // Pad focus on its Back button while open (added while hidden, so its
+        // OnEnable first runs when the panel opens).
+        if (AchievementMenuPanel != null && !AchievementMenuPanel.TryGetComponent(out GamepadMenuPanel _))
+            AchievementMenuPanel.AddComponent<GamepadMenuPanel>();
+
         // Give the UI references to the AchievementManager
         if (AchievementManager.Instance != null)
         {

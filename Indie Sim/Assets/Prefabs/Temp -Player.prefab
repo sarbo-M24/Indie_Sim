@@ -5848,6 +5848,7 @@ MonoBehaviour:
   edgeLineWidth: 0.05
   coneFlashDuration: 0.05
   aimDeadZone: 0
+  maxBounceChainRange: 15
   ammoManager: {fileID: 2920833874844402058}
   vfxHandler: {fileID: 7322266951050164843}
   weaponInventory: {fileID: 6482888848170968585}
@@ -5878,7 +5879,7 @@ AudioSource:
   m_GameObject: {fileID: 8485655876686838044}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: -4263639360668182454, guid: 36714153b1fd70742919405f124285e3, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1

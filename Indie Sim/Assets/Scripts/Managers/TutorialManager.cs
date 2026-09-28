@@ -44,7 +44,7 @@ public class TutorialManager : MonoBehaviour
         }
 
         // Pause the game
-        Time.timeScale = 0f;
+        PauseController.SetFrozen(this, true);
 
         // Enable the instruction panel
         if (instructionPanel != null)
@@ -129,7 +129,7 @@ public class TutorialManager : MonoBehaviour
         EnablePlayerScripts();
 
         // Unpause the game
-        Time.timeScale = 1f;
+        PauseController.SetFrozen(this, false);
 
         // Remove the button listener to prevent memory leaks
         if (skipButton != null)

@@ -19,7 +19,7 @@ using UnityEngine;
 public class PsychedelicBloodController : MonoBehaviour
 {
     [Header("Enable")]
-    [Tooltip("Off by default. Toggle at runtime with the debug key (works in the build) or via SetActive().")]
+    [Tooltip("Follows the Psychedelic mode setting (GameSettings.psychedelicMode); the debug key or SetActive() override it until the setting next changes.")]
     [SerializeField] private bool active = false;
     [SerializeField] private bool affectKillSplatter = true;
     [SerializeField] private bool affectGroundGore = true;
@@ -61,10 +61,8 @@ public class PsychedelicBloodController : MonoBehaviour
     [Range(0f, 1f)][SerializeField] private float groundTintAlpha = 1f;
 
     [Header("Debug Toggle")]
-    [Tooltip("Press this key to toggle the effect on/off. Works in the build too.")]
+    [Tooltip("Press this key to toggle the effect on/off. Editor and development builds only — players use the Psychedelic mode setting.")]
     [SerializeField] private KeyCode toggleKey = KeyCode.P;
-    [Tooltip("Allow the toggle key even in a non-development build.")]
-    [SerializeField] private bool enableToggleInBuild = true;
 
     [Header("References (auto-found if empty)")]
     [SerializeField] private BloodSplatterEffect killSplatter;
@@ -79,11 +77,21 @@ public class PsychedelicBloodController : MonoBehaviour
         if (groundGore == null) groundGore = FindFirstObjectByType<ChunkedGorePainter>();
     }
 
+    private void OnEnable()
+    {
+        SettingsService.OnChanged += ApplySetting;
+        ApplySetting(SettingsService.Current);
+    }
+
     private void OnDisable()
     {
+        SettingsService.OnChanged -= ApplySetting;
+
         // Leave the blood systems in a sane state if this controller is turned off.
         RestoreDefaults();
     }
+
+    private void ApplySetting(GameSettings settings) => active = settings.psychedelicMode;
 
     private void Update()
     {
@@ -123,17 +131,16 @@ public class PsychedelicBloodController : MonoBehaviour
 
     private void HandleToggleKey()
     {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
         if (toggleKey == KeyCode.None) return;
-#if !UNITY_EDITOR && !DEVELOPMENT_BUILD
-        if (!enableToggleInBuild) return;
-#endif
-        // Uses legacy Input (Active Input Handling includes the old backend, same
-        // as WeaponAmmoManager's reload key) so it works in every build.
+
+        // Legacy Input — debug-only key (Active Input Handling is still Both).
         if (Input.GetKeyDown(toggleKey))
         {
             active = !active;
             Debug.Log($"[PsychedelicBloodController] Toggled {(active ? "ON" : "OFF")} via '{toggleKey}'.");
         }
+#endif
     }
 
     /// <summary>Current palette colour for this instant (before intensity).</summary>

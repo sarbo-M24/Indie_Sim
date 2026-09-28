@@ -131,6 +131,13 @@ public class MusicManager : MonoBehaviour
         deathSource = gameObject.AddComponent<AudioSource>();
         deathSource.loop = false;
         deathSource.playOnAwake = false;
+
+        // Music and SFX volume sliders (null until MainMixer exists — plays unrouted, as before).
+        ambientSource.outputAudioMixerGroup = AudioManager.MusicGroup;
+        powerSource.outputAudioMixerGroup = AudioManager.MusicGroup;
+        teleporterAmbientSource.outputAudioMixerGroup = AudioManager.SfxGroup;
+        teleporterActivateSource.outputAudioMixerGroup = AudioManager.SfxGroup;
+        deathSource.outputAudioMixerGroup = AudioManager.SfxGroup;
     }
     
     void Update()

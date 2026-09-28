@@ -23,7 +23,7 @@ public class DamageNumberManager : MonoBehaviour
 
     public void Spawn(Vector3 worldPosition, int damage, bool isCrit = false)
     {
-        if (popupPrefab == null || damage <= 0) return;
+        if (popupPrefab == null || damage <= 0 || !SettingsService.Current.damageNumbers) return;
 
         DamageNumberPopup popup = Instantiate(popupPrefab, worldPosition, Quaternion.identity);
         popup.Initialize(damage, isCrit);

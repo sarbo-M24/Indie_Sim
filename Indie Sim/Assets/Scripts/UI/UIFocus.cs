@@ -37,7 +37,15 @@ public static class UIFocus
             if (IsUsable(selectable)) list.Add(selectable);
 
         list.Sort((a, b) => ScreenY(b).CompareTo(ScreenY(a)));
+        return LinkInOrder(list);
+    }
 
+    /// <summary>
+    /// Links `list` Up/Down in the given order, wrapping at the ends. Left/Right
+    /// are cleared, so sliders keep Left/Right for themselves. Returns the first.
+    /// </summary>
+    public static Selectable LinkInOrder(List<Selectable> list)
+    {
         int count = list.Count;
         for (int i = 0; i < count; i++)
         {

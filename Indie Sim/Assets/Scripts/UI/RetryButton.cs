@@ -24,7 +24,7 @@ public class RetryButton : MonoBehaviour
     public void OnRetryClicked()
     {
         Debug.Log($"[RetryButton] OnRetryClicked() on {gameObject.name} in scene '{gameObject.scene.name}'.");
-        Time.timeScale = 1f;
+        PauseController.ResetAll();
 
         // Restarts the run in place — works identically whether death
         // happened in RoguelikeMode or BossArena (D2).

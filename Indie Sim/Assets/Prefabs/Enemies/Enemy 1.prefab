@@ -204,6 +204,7 @@ MonoBehaviour:
   chunkSpreadAngle: 45
   chunkSortingLayer: Default
   chunkSortingOrder: 0
+  bloodTintColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!82 &6872814849207381837
 AudioSource:
   m_ObjectHideFlags: 0
@@ -213,7 +214,7 @@ AudioSource:
   m_GameObject: {fileID: 1773204433277557146}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: -4263639360668182454, guid: 36714153b1fd70742919405f124285e3, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1

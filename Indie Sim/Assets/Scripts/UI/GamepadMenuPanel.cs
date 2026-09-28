@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -13,16 +14,30 @@ using UnityEngine.UI;
 ///   - gives each button the hover/focus grow (ButtonFocusScale).
 /// Everything is released in OnDisable, so hiding the panel — or the scene
 /// unloading with it open — hands control back cleanly. Added at runtime by
-/// the panel's owner (OptionsMenu, PlayerHealth), so no scene edit is needed.
+/// the panel's owner (OptionsMenu, PlayerHealth, MainMenu...), so no scene
+/// edit is needed.
+///
+/// When panels stack (the Achievements panel over the main menu), only the
+/// most recently opened one holds focus, so they don't fight over it.
 /// </summary>
 public class GamepadMenuPanel : MonoBehaviour
 {
+    private static readonly List<GamepadMenuPanel> openPanels = new List<GamepadMenuPanel>();
+
     private Selectable _topButton;
     private bool _linked;
+
+    private bool IsTopmost => openPanels.Count > 0 && openPanels[openPanels.Count - 1] == this;
+
+    // Statics survive play-mode restarts when domain reload is disabled.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics() => openPanels.Clear();
 
     private void OnEnable()
     {
         _linked = false;
+        openPanels.Remove(this);
+        openPanels.Add(this);
 
         foreach (Button button in GetComponentsInChildren<Button>())
             if (!button.TryGetComponent(out ButtonFocusScale _))
@@ -44,16 +59,17 @@ public class GamepadMenuPanel : MonoBehaviour
             // A panel shown before any pad input (e.g. the countdown at scene
             // start) wouldn't count as gamepad use yet — with a pad plugged
             // in, select the top button up front so the first A press works.
-            if (_topButton != null && Gamepad.current != null && EventSystem.current != null
+            if (IsTopmost && _topButton != null && Gamepad.current != null && EventSystem.current != null
                 && EventSystem.current.currentSelectedGameObject == null)
                 EventSystem.current.SetSelectedGameObject(_topButton.gameObject);
         }
 
-        UIFocus.EnsureSelection(transform, _topButton);
+        if (IsTopmost) UIFocus.EnsureSelection(transform, _topButton);
     }
 
     private void OnDisable()
     {
+        openPanels.Remove(this);
         InputManager.SetPlayerBlocked(this, false);
         if (CursorController.Instance != null) CursorController.Instance.SetCursorOverride(this, false);
 

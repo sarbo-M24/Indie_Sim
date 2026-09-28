@@ -58,6 +58,11 @@ public static class InputManager
         if (controls != null) return;
 
         controls = new PlayerControls();
+
+        // Rebinds from the Controls tab (saved by SettingsService).
+        string overrides = SettingsService.Current.bindingOverridesJson;
+        if (!string.IsNullOrEmpty(overrides)) controls.asset.LoadBindingOverridesFromJson(overrides);
+
         controls.UI.Enable();
         controls.Player.Enable();
 

@@ -86,30 +86,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   speed: 4
   rotationSpeed: 5
-  normalDrag: 1
-  knockbackDrag: 25
-  detectionRadius: 5
+  attackTriggerDistance: 3
+  windupDistance: 0.5
+  lungeForce: 15
+  attackCooldown: 1.5
+  lungeDrag: 5
+  spriteTransform: {fileID: 0}
+  squashAmount: 0.7
   separationRadius: 1.5
-  leaderRadius: 5
-  minFlockSize: 6
-  alignmentWeight: 1
-  cohesionWeight: 1
-  separationWeight: 1.5
-  playerSeekWeight: 2
-  avoidanceLayer:
-    serializedVersion: 2
-    m_Bits: 0
-  avoidanceDistance: 1.5
-  avoidanceWeight: 3
-  avoidanceRayCount: 5
-  avoidanceArcDegrees: 120
-  tileSize: 1
-  obstacleLayer:
-    serializedVersion: 2
-    m_Bits: 256
-  pathCheckDistance: 2
-  usePathfinding: 0
-  pathUpdateInterval: 0.5
+  separationForce: 3
 --- !u!50 &257384993561902794
 Rigidbody2D:
   serializedVersion: 5
@@ -279,6 +264,7 @@ MonoBehaviour:
   chunkSpreadAngle: 45
   chunkSortingLayer: Default
   chunkSortingOrder: 0
+  bloodTintColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!82 &6872814849207381837
 AudioSource:
   m_ObjectHideFlags: 0
@@ -288,7 +274,7 @@ AudioSource:
   m_GameObject: {fileID: 1773204433277557146}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: -4263639360668182454, guid: 36714153b1fd70742919405f124285e3, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1

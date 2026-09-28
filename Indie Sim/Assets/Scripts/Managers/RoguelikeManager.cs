@@ -302,7 +302,7 @@ public class RoguelikeManager : MonoBehaviour
 
     public void ContinueDungeon()
     {
-        Time.timeScale = 1f;
+        PauseController.ResetAll();
 
         currentLevel++;
         Debug.Log($"[RoguelikeManager] Level increased to {currentLevel}!");

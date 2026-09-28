@@ -2,7 +2,7 @@
 
 **Purpose:** session handoff context for Claude Code. Read this before resuming work, alongside `architecture-refactor-plan-v3.md` (Assets/Scripts) and `AUDIT.md` (project root), which remain the source of truth for what each phase is supposed to do.
 
-**Status as of this report:** Phases 1–6 of 8 implemented and committed. **Phase 7 is deferred post-demo** — per `DemoBeforeIGDC.md`, the Upgrade System took its place in the active work sequence starting 2026-09-17. For current work, see `UpgradeSystemPlan.md` (execution plan + running status) and `UpgradeSystemSpec.md` (design) instead of the Phase 7 section below, which is preserved as-is for whenever Phase 7 is picked back up post-demo.
+**Status as of this report:** Phases 1–6 of 8 implemented and committed. **Phase 7 is deferred post-demo** — per `DemoBeforeIGDC.md`, the Upgrade System took its place in the active work sequence starting 2026-09-17. For current work, see `UpgradeSystemPlan.md` (execution plan + running status) and `UpgradeSystemSpec.md` (design) instead of the Phase 7 section below, which is preserved as-is for whenever Phase 7 is picked back up post-demo. **Controller support / input work (2026-09-28)** is tracked in the Status block at the top of `SettingsAudioInputPlan.md`.
 
 **Branch:** `Sarbo`.
 

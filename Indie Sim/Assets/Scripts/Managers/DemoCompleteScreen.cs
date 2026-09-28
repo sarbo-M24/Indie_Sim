@@ -45,7 +45,7 @@ public class DemoCompleteScreen : MonoBehaviour
         if (CursorController.Instance != null)
             CursorController.Instance.SetCursorOverride(true);
 
-        Time.timeScale = 0f;
+        PauseController.SetFrozen(this, true);
     }
 
     // Reads via the managers' own Instance singletons, same as StatTracker's
@@ -64,7 +64,7 @@ public class DemoCompleteScreen : MonoBehaviour
     private void OnMainMenuClicked()
     {
         Debug.Log($"[DemoCompleteScreen] OnMainMenuClicked() fired. GameManager.Instance: {(GameManager.Instance != null)}");
-        Time.timeScale = 1f;
+        PauseController.ResetAll();
         GameManager.Instance.ReturnToMainMenu();
     }
 }

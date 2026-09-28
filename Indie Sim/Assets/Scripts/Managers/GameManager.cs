@@ -27,32 +27,32 @@ public class GameManager : MonoBehaviour
 
     public void LoadScene(string sceneName)
     {
-    Time.timeScale = 1f;
+    PauseController.ResetAll();
     UnityEngine.SceneManagement.SceneManager.LoadScene(sceneName);
     }
     // ───────────── SCENE LOADS ─────────────
 
     public void LoadMenu()
     {
-        Time.timeScale = 1f;
+        PauseController.ResetAll();
         SceneManager.LoadScene(mainMenuScene);
     }
 
     public void LoadGame()
     {
-        Time.timeScale = 1f;
+        PauseController.ResetAll();
         SceneManager.LoadScene(gameScene);
     }
 
     public void LoadBoss()
     {
-        Time.timeScale = 1f;
+        PauseController.ResetAll();
         SceneManager.LoadScene(bossScene);
     }
 
     public void ReloadCurrentScene()
     {
-        Time.timeScale = 1f;
+        PauseController.ResetAll();
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 

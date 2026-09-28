@@ -1,6 +1,214 @@
 # Settings Menu, Sound Manager, Input Manager & Controller Support — Plan
 
 > **Ground rules (from `UpgradeSystemSpec.md` / `shop-ui-mascot-and-cards.md`):** Claude writes only C# scripts. The user does scenes, prefabs, the mixer asset and the `.inputactions` asset by hand, following numbered checklists. No new packages. No new `DontDestroyOnLoad`: global services are parented under the `[Persistent]` root in `Boot.unity`. UI animations use unscaled time.
+>
+> **Exception for the input work (2026-09-28):** Sarbo asked Claude to do the input side end to end. So Claude edited `PlayerControls.inputactions` and `InputSystem.inputsettings.asset` directly. Every other scene and prefab change is done at runtime from code, so no `.unity`/`.prefab` files were touched. Sarbo tests all scenes in Play mode; Claude only recompiles and checks for errors.
+
+**Status (2026-09-28) — Input half of Phase A mostly done: gamepad bindings, one shared `PlayerControls`, all gameplay/shop/pause/death/countdown input on the new Input System, gamepad-navigable menus. Committed (`4b9d9b9`). Settings/pause/audio backend now written (below); Settings panel UI and rebinding not started.**
+
+**Done:**
+- **`PlayerControls.inputactions`:**
+  - Control schemes `Keyboard&Mouse` and `Gamepad`.
+  - Player map adds `Aim` (right stick, `StickDeadzone(min=0.2)`) and `Reload` (R / X).
+  - Gamepad bindings on existing actions: Move = left stick (`StickDeadzone(min=0.15)`), Fire = RT, **Dash = LT** (not "LT or RB"), Stomp = A, SwitchWeapon = Y, SwitchWeaponScroll = LB/RB as a 1D axis.
+  - New **UI map**: Navigate, Submit, Cancel, Point, Click, RightClick, MiddleClick, ScrollWheel and **Pause (Esc / Start)**.
+  - The "empty-path Stomp binding" from the plan was already fine (Space).
+- **`Scripts/Input/InputManager.cs`:** a **static class**, not the planned `InputManager.Instance` MonoBehaviour under `[Persistent]`, so it needs no Boot setup.
+  - `InputManager.Controls` is the one shared `PlayerControls` instance.
+  - The 5 old `new PlayerControls()` owners now subscribe in `OnEnable` and unsubscribe in `OnDisable`, so a destroyed player can't leave callbacks behind.
+  - Per-source `SetPlayerBlocked(source, bool)` turns the Player map off while the shop, pause, death screen or countdown is open.
+  - Also provides `UsingGamepad` (last device used), `PointerPosition` and `TryGetGamepadAim()` (holds the last stick direction).
+  - On every scene load it points each `InputSystemUIInputModule` at this asset's UI map. Those modules used Unity's `DefaultInputActions` before, so UI bindings can now be rebound too.
+  - A future `SettingsService` should apply binding overrides to `InputManager.Controls`.
+- **Pause lives in the UI map, not the Player map.** The UI map is always on, so the same action can resume while the Player map is off.
+- **Legacy `Input.*` removed from gameplay:**
+  - `OptionsMenu` Esc is now the Pause action.
+  - `WeaponAmmoManager` R is now the Reload action.
+  - `PlayerConeShooter`: mouse aim now reads the pointer through the Input System, and the legacy fire fallback is deleted.
+  - `ShopUIController` clicks go through the UI map.
+  - `CursorTooltip`, `CustomCrosshair` and `CameraLead` read the pointer through the Input System.
+  - **Still legacy:** the debug keys (`PlayerHealth`, `UpgradeDebugHUD`, `DamageIndicator`, `PsychedelicBloodController`) and `SimpleTouch`. The Debug map hasn't been made.
+- **Unified aim (basic):**
+  - `SimplePlayerRotation`, `PlayerConeShooter`, `CameraLead` and `CustomCrosshair` use the right stick while the gamepad is the active device.
+  - Camera lead on the pad is full lead along the aim direction and holds after release. The tilt curve, the ease toward movement direction after 1.5 s, and `gamepadSmoothSpeed` are **not done**.
+  - The crosshair sits `gamepadReticleDistance` (4) along the aim, and hides whenever the Player map is off.
+- **Gamepad menus:**
+  - `Scripts/UI/UIFocus.cs`: auto-selects on gamepad, and `LinkVertical` builds explicit top-to-bottom navigation.
+  - `Scripts/UI/GamepadMenuPanel.cs`: added at runtime to the pause panel, the death panel and the countdown panel. While the panel is open it blocks the Player map, shows the cursor, links and selects the buttons, and adds the grow effect.
+  - `Scripts/UI/ButtonFocusScale.cs`: hover/focus grow on buttons.
+  - `CursorController` gained a per-source `SetCursorOverride(source, bool)`. The old bool overload still works.
+- **Shop on gamepad:**
+  - Selection stands in for hover: focus, tooltip and stat preview all work.
+  - The tooltip anchors to the focused card on the pad.
+  - Explicit navigation is rebuilt every frame and skips hidden or disabled items. It had to be explicit because the pack cigs are rotated ~180° in the scene, and Unity's automatic navigation turned Up into Down.
+  - Pack cigs get a focus border (`PackCigView.SetFocused`).
+  - Buy, Burn, Reshuffle and Continue grow on focus.
+  - After a buy or burn, focus moves to a sensible next spot.
+- **Bugs fixed along the way:**
+  - **Pads not detected at all:** Input System **Supported Devices** was `AndroidGamepad, Joystick, Keyboard, Mouse`, which filtered out XInput/DualShock pads. Added `Gamepad`.
+  - **Machine gun silent after Retry:** `TutorialManager` disables `PlayerConeShooter`, and when its `Start` ran before `WeaponInventory`'s, the shooter missed the one-time starting-weapon event. The shooter now re-syncs its weapon in `OnEnable`.
+  - Esc/Start is now ignored while something else has frozen the game (death screen, countdown). Before, pausing over the death screen and resuming would unfreeze the game behind it.
+
+**Settings / pause / audio backend (2026-09-28, compiles, awaiting test):**
+- **`Scripts/Settings/GameSettings.cs` + `SettingsService.cs`:** a **static** service, like `InputManager`, so there's no Boot object.
+  - `SettingsService.Current`, `Change(s => s.field = v)` (raises `OnChanged`), `Save()`, `ResetAudio()` / `ResetGameplay()`.
+  - `settings.json` is written through `settings.json.tmp` + `File.Replace`. A corrupt file falls back to defaults. The file is also saved on quit.
+  - Migrates the old `SoundEnabled` PlayerPref (0 → master 0) once, then deletes the key.
+  - Phase A fields only: audio (master/music/sfx/ui, muteWhenUnfocused), gameplay (damageNumbers, psychedelicMode, screenShake, cameraLead, flashIntensity), `bindingOverridesJson`.
+- **`Scripts/Managers/PauseController.cs`:** a static class and the **only writer of `Time.timeScale`**.
+  - `SetFrozen(source, bool)` works per source. Hit-stop is `BeginHitStop(scale)` / `EndHitStop()` and never overrides a freeze. `ResetAll()` clears both. It resets itself on every Single scene load. `OnFrozenChanged` fires when the game freezes or resumes.
+  - **Every** old writer moved over, not just the pause menu and `DamageIndicator`: `OptionsMenu`, `DamageIndicator` (fixes the unpause-during-hit-stop bug), `DemoCompleteScreen`, `TutorialManager`, `PlayerHealth`, `StatTracker`, `RetryButton`, `GameManager`, `RoguelikeManager`. `ShopUIController` and the Esc guard now read `PauseController.IsFrozen`.
+- **`Scripts/Audio/AudioManager.cs`:** static. It loads **`Assets/Resources/MainMixer.mixer`**, so the mixer goes in `Resources/`, not `Assets/Audio/`.
+  - Applies `20·log10` dB volumes on every change, on focus change (mute when unfocused) and on every scene load.
+  - On scene load it routes scene AudioSources that have no output group to SFX.
+  - `MusicManager` routes ambient/power → Music and teleporter/death → SFX.
+  - With no mixer, only Master works, through `AudioListener.volume`.
+- **`OptionsMenu`:** the `AudioListener.volume` hack and the dead mixer/AudioSource fields are gone. The existing Sound button now toggles Master volume 0 ↔ previous through `SettingsService`, until the sliders exist.
+- **Live setting listeners:**
+  - `DamageNumberManager.Spawn` is gated by `damageNumbers`.
+  - `CameraShake` and `CameraLead`'s recoil/shake offset are scaled by `screenShake`. `CameraLead`'s lead is scaled by `cameraLead`.
+  - `PsychedelicBloodController` follows `psychedelicMode`. Its P key now works only in editor and dev builds, and the `enableToggleInBuild` field was removed.
+  - `DamageIndicator`'s flash colour and intensity blend toward normal by `flashIntensity`.
+- `InputManager` loads `bindingOverridesJson` when it creates the controls.
+- **Bug found in test, then fixed: soft-lock when a hit killed the player.** `StatTracker.ShowDeathStats()` froze time the moment the player died, before `PlayerHealth`'s scaled-time `deathDelay`, so the death panel never appeared and Esc was ignored. Before, it only worked by accident: the hit-stop put back its saved `timeScale = 1` 0.1 s later. StatTracker no longer freezes, and `PlayerHealth` freezes when the panel shows.
+
+**Manual checklist (Sarbo): mixer**
+1. Create `Assets/Resources/MainMixer.mixer` (Project window → Create → Audio Mixer). It **must** be in `Resources/` and named exactly `MainMixer`.
+2. In the Audio Mixer window, under `Master` add child groups named exactly `Music`, `SFX` and `UI`.
+3. For each of the 4 groups: select it, right-click **Volume** in the Inspector → *Expose "Volume" to script*. Then in the window's **Exposed Parameters** dropdown, rename them to `MasterVol`, `MusicVol`, `SfxVol` and `UiVol`.
+4. Set the AudioSource **Output** to `SFX` on these prefabs: `Prefabs/Enemies/Enemy.prefab`, `Enemy 1`, `Enemy 2`, `Enemy 3`, `Prefabs/Teleporter.prefab`, `Prefabs/Temp -Player.prefab`. Scene-baked sources are routed automatically.
+5. Play: the console should **not** show "[AudioManager] No Resources/MainMixer.mixer yet".
+
+**Test (backend):** take damage and press Esc/Start during the hit-stop. The game must stay paused. Also check the pause → Retry and pause → Main Menu flows, the death screen then Retry, the countdown skip, demo complete → main menu, and that the shop still works after resuming from pause. The Sound button mutes and unmutes and survives a restart.
+
+**Settings panel scripts (2026-09-28, compile clean, prefab not built yet):**
+- `Scripts/UI/Settings/SettingBindings.cs`: the `FloatSetting` / `BoolSetting` enums map to `GameSettings` fields. Each row picks its setting from a dropdown.
+- `SliderRow`:
+  - Slider + optional `%` readout.
+  - Runs in whole steps (20 = 5% per D-pad press; holding repeats).
+  - Min, Max and Whole Numbers are overwritten at runtime.
+- `ToggleRow`: Toggle + optional ON/OFF readout.
+- `SettingsPanel`:
+  - Tabs (Audio/Gameplay) switch with LB/RB or Q/E, or by clicking the tab buttons.
+  - Up/Down walks the current tab's rows, then Reset, then Back.
+  - B/Esc/Start closes it and saves `settings.json`.
+  - While open it blocks the Player map and shows the cursor.
+  - `BlocksPauseInput` stops the Esc that closes Settings from also resuming the game.
+- `OptionsMenu.OpenSettings()` and `MainMenu.OpenSettings()` hide their own buttons while Settings is open, then give focus back to the Settings button.
+- `MainMenu` gains a `menuButtons` field, which also gets `GamepadMenuPanel`, so the main menu now works on a pad.
+- `UIFocus.LinkInOrder(list)`: a new helper.
+- **CycleRow, ScrollToSelected, and UI sounds are not built.** Phase A's two tabs need none of them.
+
+**Built by Claude (2026-09-28), steps 1–4 below are DONE.** Sarbo asked Claude to build and wire the prefab and scenes; it was built by a one-off editor script. It uses placeholder art (flat greys, no sprites), and Sarbo adds the images later.
+- **`Prefabs/UI/Settings Panel.prefab`:** built as in the tree below and saved inactive.
+  - Each row's background is its focus highlight: the Slider/Toggle tints it from transparent to faint white.
+  - Its window has a white `Outline` border.
+- **`Player Canvas RoguelikeMode.prefab`:**
+  - A new `Options Panel/Settings` button (a copy of Resume) at (0, −125) → `OptionsMenu.OpenSettings`. `Exit` moved to (0, −240).
+  - A Settings Panel instance is the canvas's last child, assigned to `OptionsMenu.settingsPanel`.
+  - Verified in RoguelikeMode and BossArena, with no scene overrides.
+- **`Main menu.unity`:**
+  - `Button Panel` and `Achievemnt btn` are now grouped under a new stretch `Menu Buttons` object.
+  - A new `Settings btn` (a copy of the achievement button: grey, no sprite, "SETTINGS" text) sits 170 px left of it → `MainMenu.OpenSettings`.
+  - A Settings Panel instance is the canvas's last child. `MainMenu.menuButtons` and `settingsPanel` are assigned.
+  - The EventSystem now uses `InputSystemUIInputModule` (actions = `PlayerControls`).
+- **`Store Scene.unity`:** the EventSystem now uses `InputSystemUIInputModule`.
+- **Code changes that came with the build:**
+  - `GamepadMenuPanel` now keeps a stack of open panels, and only the most recently opened one holds focus. Without this, the main menu would steal focus from the Achievements panel.
+  - `AchievementMenuController` adds `GamepadMenuPanel` to the Achievements panel.
+
+### Settings panel — setup checklist (reference; done by Claude, see above)
+
+**1. Build the prefab.** Do it in `Main menu.unity` under its Canvas, then drag it to `Assets/Prefabs/UI/Settings Panel.prefab`.
+```
+Settings Panel            ← full-screen Image (bg), SettingsPanel component. Save the prefab INACTIVE.
+  Header
+    Title                 TMP "SETTINGS"
+    Tabs                  Horizontal Layout Group
+      Audio Tab           Button + TMP "AUDIO"
+        Marker            Image (underline / invert block), shown only on the active tab
+      Gameplay Tab        Button + TMP "GAMEPLAY"
+        Marker
+    Hint                  TMP "LB / RB"  (optional)
+  Body
+    Audio Content         Vertical Layout Group (spacing ~12)
+      Master Row          SliderRow  (Setting = MasterVolume)
+        Label             TMP "Master"   (LayoutElement preferred width ~300)
+        Slider            UI ▸ Slider
+        Value             TMP "100%"
+      Music Row           SliderRow  (MusicVolume)
+      SFX Row             SliderRow  (SfxVolume)
+      UI Row              SliderRow  (UiVolume)
+      Mute Row            ToggleRow  (MuteWhenUnfocused)
+        Label             TMP "Mute when unfocused"
+        Toggle            UI ▸ Toggle (delete its built-in Label child)
+        State             TMP "OFF"
+    Gameplay Content      Vertical Layout Group, same row style
+      Damage Numbers      ToggleRow  (DamageNumbers)
+      Psychedelic Mode    ToggleRow  (PsychedelicMode)
+      Screen Shake        SliderRow  (ScreenShake)
+      Camera Lead         SliderRow  (CameraLead)
+      Flash Intensity     SliderRow  (FlashIntensity)
+  Footer
+    Reset Button          Button + TMP "RESET TO DEFAULTS"
+    Back Button           Button + TMP "BACK"
+```
+- **Each row:** Horizontal Layout Group (Child Alignment Middle Left, Control Child Size on, Child Force Expand width off). On the `SliderRow`/`ToggleRow` component, drag in its Slider/Toggle and value TMP, and pick the **Setting**. Leave **Steps** at 20.
+- **Pad focus must be visible:** on every Slider and Toggle, set Transition = Color Tint and give **Selected Color** a clear contrast (e.g. inverted white). Buttons get the grow-on-focus automatically.
+- Slider Min/Max/Whole Numbers and every Navigation setting are overwritten at runtime, so leave them alone.
+- **`SettingsPanel` component:**
+  - Set **Tabs** size to 2.
+  - Element 0: Category = Audio, Button = Audio Tab, Content = Audio Content, Active Marker = Audio Tab/Marker.
+  - Element 1: the same for Gameplay.
+  - Reset Button and Back Button: drag in the footer buttons.
+- Don't add `GamepadMenuPanel` to it; the panel does that job itself.
+
+**2. Pause menu:** `Prefabs/UI/Player Canvas RoguelikeMode.prefab`, used by RoguelikeMode and BossArena.
+1. Open the prefab. Drag `Settings Panel` in as the **last child of the canvas root**, so it draws above Options Panel.
+2. In `Options Panel`, duplicate `Resume` → rename it `Settings` with text "SETTINGS". Place it between Resume and Retry. Its OnClick: remove the copied Resume call, drag in the object that has **OptionsMenu**, and pick `OptionsMenu.OpenSettings`.
+3. On **OptionsMenu**, drag the Settings Panel instance into the new **Settings Panel** field.
+4. Save. Open RoguelikeMode and BossArena and check that the new button shows. A scene-level override on Options Panel could hide it.
+
+**3. Main menu** (`Main menu.unity`):
+1. **EventSystem:** click *Replace with InputSystemUIInputModule* on the Standalone Input Module, or remove it and add Input System UI Input Module. Leave its Actions asset as is; `InputManager` points it at `PlayerControls` at runtime. Without this, the pad can't drive the main menu.
+2. Put the `Settings Panel` prefab under the menu Canvas as its last child.
+3. Add a `Settings` button next to Play. Its OnClick → `MainMenu.OpenSettings`.
+4. On **MainMenu**:
+   - **Menu Buttons** = the object that holds the menu's buttons. It hides while Settings is open and gets pad navigation. It must **not** contain the Settings Panel.
+   - **Settings Panel** = the instance.
+   - If the buttons sit directly on the Canvas, group them under an empty `Menu Buttons` object first.
+
+**4. Store Scene:** do the same EventSystem swap as 3.1.
+
+**5. Test:**
+- **Pad:** Start → Settings → LB/RB between tabs.
+  - Sliders move 5% per press, and holding repeats.
+  - A toggles.
+  - Reset restores the current tab's defaults.
+  - B returns to the pause menu with Settings focused. B does **not** resume the game; Start from the pause menu does.
+- **Esc:** Esc from Settings returns to the pause menu; Esc again resumes.
+- **Mouse:** click tabs, drag sliders, click Back.
+- **Changes apply live:**
+  - Master/Music/SFX sliders change volume (Music/SFX/UI need the mixer checklist above).
+  - Damage numbers off → no popups.
+  - Psychedelic on → the blood cycles colours.
+  - Shake 0% → no shake.
+  - Camera lead 0% → the camera stays on the player.
+- **Persistence:** quit Play mode and play again; the values stick.
+- **Main menu:** everything above, plus pad navigation of the main menu buttons.
+
+**Tested by Sarbo:** gamepad gameplay (move, aim, fire, dash, stomp); shop navigation, highlight and grow.
+**Awaiting test:** pause-menu navigation; the death screen (focus on Retry, cursor, crosshair hidden); A to skip the countdown; the machine-gun-after-Retry fix; pausing inside the shop keeping the shop cursor.
+
+**Left in Phase A (input side):**
+- Swap `StandaloneInputModule` → `InputSystemUIInputModule` in `Main menu.unity` and `Store Scene.unity`.
+- Gamepad support for remaining panels, e.g. `DemoCompleteScreen` and the main menu. `GamepadMenuPanel` fits any simple button-list panel.
+- `CursorTooltip` is already anchored for the shop. The OS cursor still shows in the shop on the pad, and the plan's "hide the cursor on gamepad" isn't done.
+
+**Open notes:**
+- Unity sees 3 `XInputControllerWindows` devices on Sarbo's machine (a Cosmic Byte Ares in XInput mode, likely plus Steam Input or other virtual copies). It's harmless so far.
+- The "Joystick reconnected" console line comes from the legacy Input Manager, because Active Input Handling is still **Both**.
+- A "Screen position out of view frustum" error was seen twice during testing. It hasn't been traced, and may come from `CameraLead`/`PlayerConeShooter`'s `ScreenToWorldPoint`.
 
 ## Context
 

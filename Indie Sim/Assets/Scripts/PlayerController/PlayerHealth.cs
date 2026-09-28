@@ -368,7 +368,7 @@ public class PlayerHealth : MonoBehaviour
         if (deathUIPanel != null)
         {
             deathUIPanel.SetActive(true);
-            Time.timeScale = 0f;
+            PauseController.SetFrozen(this, true);
             Debug.Log($"[PlayerHealth] Death UI shown: {deathUIPanel.name}");
         }
         else
@@ -379,7 +379,7 @@ public class PlayerHealth : MonoBehaviour
 
     public void GoToMainMenu()
     {
-        Time.timeScale = 1f;
+        PauseController.ResetAll();
         GameManager.Instance.ReturnToMainMenu();
         Debug.Log("Going to main menu");
     }

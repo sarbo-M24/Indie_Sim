@@ -32,7 +32,8 @@ public class CameraShake : MonoBehaviour
     // Call this function when gun fires
     public void ShakeCamera(float intensity, float duration)
     {
-        if (noise != null)
+        intensity *= SettingsService.Current.screenShake;
+        if (noise != null && intensity > 0f)
         {
             StartCoroutine(DoShake(intensity, duration));
         }

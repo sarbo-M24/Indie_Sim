@@ -151,7 +151,7 @@ public class ShopUIController : MonoBehaviour
         if (shopPanel != null && !shopPanel.activeInHierarchy) return;
 
         // Paused over the shop: the pause menu owns focus and clicks.
-        if (Time.timeScale == 0f) return;
+        if (PauseController.IsFrozen) return;
 
         RefreshNavigation();
         UIFocus.EnsureSelection(shopPanel != null ? shopPanel.transform : transform, FirstOfferSelectable());
