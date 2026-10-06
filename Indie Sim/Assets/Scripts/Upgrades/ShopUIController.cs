@@ -156,6 +156,16 @@ public class ShopUIController : MonoBehaviour
         // Paused over the shop: the pause menu owns focus and clicks.
         if (PauseController.IsFrozen) return;
 
+        // RB / R1 (UI/ShopContinue): the Continue button's own onClick, so the
+        // leaving-the-store checkpoint save runs exactly as for a click. RB has
+        // no Player-map binding, and a Button action re-enabled while held
+        // doesn't fire, so the press can't carry into the next level.
+        if (InputManager.Controls.UI.ShopContinue.WasPressedThisFrame() && CanContinueFromShortcut())
+        {
+            continueButton.onClick.Invoke();
+            return;
+        }
+
         RefreshNavigation();
         UIFocus.EnsureSelection(shopPanel != null ? shopPanel.transform : transform, FirstOfferSelectable());
         TrackGamepadSelection();
@@ -181,6 +191,15 @@ public class ShopUIController : MonoBehaviour
         if (_selectedCard != null && _pendingReplaceOffer == null
             && !IsUnder(hit, _selectedCard.transform) && !IsUnder(hit, buyButton))
             ClearBuySelection();
+    }
+
+    // Pause menu over the shop is already ruled out by the IsFrozen check in Update.
+    // Settings/Controls (whose RB switches tabs) and the replace confirm are modal too.
+    private bool CanContinueFromShortcut()
+    {
+        return continueButton != null && continueButton.IsActive() && continueButton.IsInteractable()
+            && !TabbedMenuPanel.BlocksPauseInput
+            && _pendingReplaceOffer == null;
     }
 
     /// <summary>Topmost UI object under the cursor, or null.</summary>
