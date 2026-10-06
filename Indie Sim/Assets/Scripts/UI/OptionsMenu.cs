@@ -298,10 +298,33 @@ public class OptionsMenu : MonoBehaviour
         ToggleOptionsMenu();
     }
 
-    // B / Esc backs out of the quit warning.
+    // B / Esc steps back one level: quit warning → pause menu → gameplay.
+    // Settings/Controls close themselves on Cancel (back to the pause menu).
     private void OnCancelPressed(UnityEngine.InputSystem.InputAction.CallbackContext ctx)
     {
-        if (quitWarning != null && quitWarning.IsOpen) quitWarning.Answer(false);
+        if (!isGamePaused) return;
+
+        if (quitWarning != null && (quitWarning.IsOpen || quitWarning.ClosedFrame == Time.frameCount))
+        {
+            if (quitWarning.IsOpen) quitWarning.Answer(false);
+            return;
+        }
+
+        // This press is closing Settings/Controls (back to the pause menu), not resuming.
+        if (TabbedMenuPanel.BlocksPauseInput) return;
+
+        // Esc is both Cancel and Pause; the Pause handler already toggles, so
+        // resuming here too would let it re-pause on the same press.
+        if (IsPauseControl(ctx.control)) return;
+
+        ResumeGame();
+    }
+
+    private static bool IsPauseControl(UnityEngine.InputSystem.InputControl control)
+    {
+        foreach (UnityEngine.InputSystem.InputControl pauseControl in InputManager.Controls.UI.Pause.controls)
+            if (pauseControl == control) return true;
+        return false;
     }
 
     #endregion
