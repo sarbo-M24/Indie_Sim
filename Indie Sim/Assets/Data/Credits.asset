@@ -16,7 +16,7 @@ MonoBehaviour:
   - heading: GAME DESIGN
     lines:
     - Sarbojit Mandal
-    - Soham Chavan
+    - DojoDuck (Soham Chavan)
   - heading: PROGRAMMING
     lines:
     - Sarbojit Mandal
@@ -35,6 +35,9 @@ MonoBehaviour:
   - heading: SOUND EFFECTS & ART
     lines:
     - "Kenney (kenney.nl) \u2014 CC0"
+  - heading: Icon Pack
+    lines:
+    - CCStudios
   - heading: MADE WITH
     lines:
     - Unity
@@ -44,6 +47,7 @@ MonoBehaviour:
     - Atharv Pol
     - Aditya Kumar
     - Arjun Chandgude
+    - Moms and Dads
     - Cthullu
   - heading: 
     lines:

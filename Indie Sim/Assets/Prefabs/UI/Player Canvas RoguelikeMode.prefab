@@ -9494,7 +9494,7 @@ GameObject:
   - component: {fileID: 8310524989674513722}
   m_Layer: 5
   m_Name: 'Debug Buttons '
-  m_TagString: Untagged
+  m_TagString: EditorOnly
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

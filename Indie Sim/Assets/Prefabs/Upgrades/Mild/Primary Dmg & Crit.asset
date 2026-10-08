@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CritChanceCigData
   id: Mild-1
   displayName: Primary Up
-  description: asd
+  description: Inc Dmg and Crit chance
   icon: {fileID: 7747169739302169731, guid: d0ecbd2c29aa7b44fa52a5aabf8f4fa8, type: 3}
   brand: 0
   targetSlot: 0

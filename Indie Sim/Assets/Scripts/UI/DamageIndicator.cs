@@ -242,11 +242,13 @@ public class DamageIndicator : MonoBehaviour
     /// </summary>
     private void Update()
     {
-        // Press 'H' to test damage flash with hitstop
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // Press 'H' to test damage flash with hitstop (editor / dev builds only)
         if (Input.GetKeyDown(KeyCode.H))
         {
             TriggerDamageFlash();
             Debug.Log("[DamageIndicator] Test damage flash + hitstop triggered!");
         }
+#endif
     }
 }

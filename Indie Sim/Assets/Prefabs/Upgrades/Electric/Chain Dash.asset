@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ChainDashCigData
   id: Electric-4
   displayName: Chain Dash
-  description: Chain Dash
+  description: Chain multiple Dashes
   icon: {fileID: -8189351254253354183, guid: 1dfc403983010464d88fbe356cc3b48a, type: 3}
   brand: 6
   targetSlot: 3

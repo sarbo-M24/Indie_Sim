@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BulletBounceCigData
   id: Regular-1
   displayName: Primary Bullet Bounce
-  description: Bullets Bounce
+  description: Bullets Bounce on the primary weapon
   icon: {fileID: -3888813427572208302, guid: 36d925ae65208ad4aa4da6dfc2ca19e9, type: 3}
   brand: 1
   targetSlot: 0

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ChainStompCigData
   id: Electric-3
   displayName: Chain Stomp
-  description: inc the number of stomps
+  description: Chain multiple stomps
   icon: {fileID: -8189351254253354183, guid: 1dfc403983010464d88fbe356cc3b48a, type: 3}
   brand: 6
   targetSlot: 2

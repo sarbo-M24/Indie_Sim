@@ -32,7 +32,7 @@ MonoBehaviour:
   - Burn something first.
   onPackCigSelected:
   - Burn it and it hits its full potential... for this level only.
-  - "Light that one up \u2014 max power, but it won't last."
+  - Light that one up eh ..max power, but it won't last long ...
   - Burning it maxes it out. Then it's gone.
   onPet:
   - mmm yes Gabagool..

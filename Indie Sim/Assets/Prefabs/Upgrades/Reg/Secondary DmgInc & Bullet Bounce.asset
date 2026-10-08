@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Secondary DmgInc & Bullet Bounce
   m_EditorClassIdentifier: Assembly-CSharp::BulletBounceCigData
   id: Regular-2
-  displayName: Secondary Bullet Bounce
-  description: Bullets Bounce
+  displayName: Sec Bullet Bounce
+  description: Bullets Bounce on the secondary weapon
   icon: {fileID: -3888813427572208302, guid: 36d925ae65208ad4aa4da6dfc2ca19e9, type: 3}
   brand: 1
   targetSlot: 1
