@@ -108,8 +108,8 @@ public class GameManager : MonoBehaviour
     /// Tutorial exit: marks it done in the profile (so it never plays again)
     /// and drops the player into the run's first dungeon. The run itself was
     /// already started and written by StartNewRunInSlot — quitting mid-tutorial
-    /// leaves it resumable at LevelStart, and the tutorial plays again on the
-    /// next new run since it was never finished. Re-saved here so the coins
+    /// leaves it at LevelStart, and Continue puts it back in the tutorial
+    /// (ContinueRunInSlot) since it was never finished. Re-saved here so the coins
     /// picked up in the tutorial survive a quit during the first dungeon.
     /// </summary>
     public void FinishTutorial()
@@ -130,13 +130,33 @@ public class GameManager : MonoBehaviour
     /// <summary>
     /// Slot select / main-menu Continue: resume the run saved in `slot`.
     /// RoguelikeManager picks the resume point up from CurrentRun — the store,
-    /// or a fresh layout of the saved dungeon.
+    /// or a fresh layout of the saved dungeon. A run quit mid-tutorial goes
+    /// back to the tutorial (see IsRunInTutorial).
     /// </summary>
     public void ContinueRunInSlot(int slot)
     {
         Debug.Log($"[GameManager] ContinueRunInSlot({slot}) called.");
         if (!GameSession.Instance.ResumeRunInSlot(slot)) return;
-        LoadGame();
+
+        if (IsRunInTutorial(GameSession.Instance.CurrentRun)) LoadTutorial();
+        else LoadGame();
+    }
+
+    /// <summary>
+    /// A run only leaves the tutorial through FinishTutorial, which sets
+    /// TutorialCompleted — so while that's unset, a run still at the very
+    /// start (dungeon 1, nothing cleared, not in a store) was quit in the
+    /// tutorial. The progress check keeps a run already deep in the dungeon
+    /// (an old save from before the tutorial, or the flag reset by the
+    /// Tools ▸ Tutorial menu) resuming where it was.
+    /// </summary>
+    private bool IsRunInTutorial(RunStats run)
+    {
+        return !GameSession.Instance.Persistent.TutorialCompleted
+            && !string.IsNullOrEmpty(tutorialScene)
+            && run.CurrentDungeonLevel <= 1
+            && run.DungeonsClearedThisRun == 0
+            && run.ResumePoint == RunResumePoint.LevelStart;
     }
 
     /// <summary>

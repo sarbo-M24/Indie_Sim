@@ -2,17 +2,17 @@
 
 **Purpose:** session handoff context for Claude Code. Read this before resuming work, alongside `architecture-refactor-plan-v3.md` (Assets/Scripts) and `AUDIT.md` (project root), which remain the source of truth for what each phase is supposed to do.
 
-**Status as of this report:** Phases 1–6 of 8 implemented and committed. **Phase 7 is deferred post-demo** — per `DemoBeforeIGDC.md`, the Upgrade System took its place in the active work sequence starting 2026-09-17. For current work, see `UpgradeSystemPlan.md` (execution plan + running status) and `UpgradeSystemSpec.md` (design) instead of the Phase 7 section below, which is preserved as-is for whenever Phase 7 is picked back up post-demo. **Controller support / input work (2026-09-28)** is tracked in the Status block at the top of `SettingsAudioInputPlan.md`. **Tutorial scene + settings additions (2026-10-07)** — see "Latest session" below; implemented and compile-checked, **not yet Play-mode tested or committed** (commit once the checklist there passes).
+**Status as of this report:** Phases 1–6 of 8 implemented and committed. **Phase 7 is deferred post-demo** — per `DemoBeforeIGDC.md`, the Upgrade System took its place in the active work sequence starting 2026-09-17. For current work, see `UpgradeSystemPlan.md` (execution plan + running status) and `UpgradeSystemSpec.md` (design) instead of the Phase 7 section below, which is preserved as-is for whenever Phase 7 is picked back up post-demo. **Controller support / input work (2026-09-28)** is tracked in the Status block at the top of `SettingsAudioInputPlan.md`. **Tutorial scene + settings additions (2026-10-07)** — see "Latest session" below; Play-mode tested and committed (2026-10-08).
 
 **Branch:** `Sarbo`.
 
-**Commits:** `Phase 1 Done` → `Phase 2 Done` → `Phase 3 Done` → `Phase 4 and 5 Done` → `Phase 4 and 5 Bug fixes` → `Phase 6 done`. (Later work is in its own commits — see `git log`. As of 2026-10-07 the working tree has the uncommitted tutorial/settings work described below.)
+**Commits:** `Phase 1 Done` → `Phase 2 Done` → `Phase 3 Done` → `Phase 4 and 5 Done` → `Phase 4 and 5 Bug fixes` → `Phase 6 done`. (Later work is in its own commits — see `git log`.)
 
 ---
 
 ## Latest session (2026-10-07) — Tutorial, tutorial spawners, settings sliders
 
-**Status:** all compiles. Nothing Play-mode tested yet, nothing committed. Commit after the test checklist at the end of this section passes.
+**Status:** checklist below passed in Play mode and committed (2026-10-08). Follow-up fix: Continue on a run quit mid-tutorial now returns to the tutorial (`GameManager.ContinueRunInSlot` → `IsRunInTutorial`), not dungeon 1.
 
 ### 1. First-run tutorial (`Tutorial.unity`)
 - **When it plays:** the first new run on this machine goes to `Tutorial` instead of `RoguelikeMode`. Finishing it sets `PersistentStats.TutorialCompleted`, saved to `profile.json` as the new global section `global.tutorial` (`GlobalTutorialSection`). That flag covers every slot, so later new runs in any slot skip straight to the dungeon. Old profiles without the section load as "not done".
@@ -62,7 +62,7 @@
   - `MainMenu`, `GameSettings`, `SettingBindings`, `DamageIndicator`, `PsychedelicBloodController`
   - `Main menu.unity`, `Settings Panel.prefab`, `EditorBuildSettings.asset`
 
-### Test checklist (before committing)
+### Test checklist (passed 2026-10-08)
 1. **First run:** run **Tools ▸ Save ▸ Delete All Saves** (or **Tools ▸ Tutorial ▸ Replay Tutorial On Next New Run**), then Boot → Start → pick a slot. The tutorial opens, the TUTORIAL button is hidden, and the crosshair shows.
 2. **Hints:**
    - Each room's hint appears in the bubble, stays inside it, and shows the right key for keyboard and for pad.
