@@ -7,6 +7,8 @@ public class CoinUI : MonoBehaviour
 {
     [Header("UI References")]
     [SerializeField] private TextMeshProUGUI coinText;
+    [Tooltip("{0} = current coins, {1} = max coins.")]
+    [SerializeField] private string textFormat = "COINS:{0} / {1}";
 
     [Tooltip("Image set to Image Type: Filled, Fill Method: Horizontal")]
     [SerializeField] private Image fillImage;
@@ -70,7 +72,7 @@ public class CoinUI : MonoBehaviour
     {
         // ── Text ─────────────────────────────────────────────────────
         if (coinText != null)
-            coinText.text = $"COINS:{current} / {max}";
+            coinText.text = string.Format(textFormat, current, max);
 
         // ── Fill bar ─────────────────────────────────────────────────
         if (fillImage != null)

@@ -5,8 +5,8 @@ using UnityEngine;
 
 /// <summary>
 /// Authoring helpers for Tutorial.unity: drop hint zones at the Scene
-/// view's centre (under a "Tutorial Zones" parent), and clear the profile's
-/// tutorial-completed flag so the next new run plays the tutorial again.
+/// view's centre (under a "Tutorial Zones" parent), and clear or set the
+/// profile's tutorial-completed flag (replay it / skip it on new runs).
 /// </summary>
 public static class TutorialMenu
 {
@@ -75,5 +75,44 @@ public static class TutorialMenu
         {
             Debug.Log("[TutorialMenu] profile.json has no tutorial flag — the tutorial will play on the next new run.");
         }
+    }
+
+    /// <summary>
+    /// Testing shortcut: marks the tutorial done so new runs (Retry, New Game)
+    /// start in the first dungeon, as if it had been played through once.
+    /// </summary>
+    [MenuItem(Root + "Mark Tutorial Completed", priority = 21)]
+    private static void SetCompletedFlag()
+    {
+        if (Application.isPlaying && GameSession.Instance != null)
+        {
+            GameSession.Instance.Persistent.TutorialCompleted = true;
+            GameSession.Instance.Save();
+            Debug.Log("[TutorialMenu] Tutorial marked completed (live session + profile.json).");
+            return;
+        }
+
+        string path = Path.Combine(SaveService.DefaultFolder, "profile.json");
+        if (!File.Exists(path))
+        {
+            Debug.LogWarning("[TutorialMenu] No profile.json yet — enter Play mode once (or run this during Play mode) so there's a profile to mark.");
+            return;
+        }
+
+        JObject profile = JObject.Parse(File.ReadAllText(path));
+        if (!(profile["Sections"] is JObject sections))
+        {
+            Debug.LogWarning("[TutorialMenu] profile.json has no Sections — not touching it.");
+            return;
+        }
+
+        sections["global.tutorial"] = new JObject
+        {
+            ["Version"] = 1,
+            ["Scope"] = "Global",
+            ["Payload"] = new JObject { ["Completed"] = true }
+        };
+        File.WriteAllText(path, profile.ToString());
+        Debug.Log("[TutorialMenu] Tutorial marked completed in profile.json.");
     }
 }

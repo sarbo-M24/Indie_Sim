@@ -44,6 +44,11 @@ public class PlayerStompController : MonoBehaviour
     /// <summary>Chain Stomp upgrade — mirrors PlayerController.MaxDashCharges.</summary>
     private int MaxStompCharges => 1 + (Pack.Instance != null ? Pack.Instance.Stats.StompExtraCharges : 0);
 
+    /// <summary>Read by StompHUD: charges left, the Chain Stomp cap, and the recharge fill (1 = full).</summary>
+    public int StompCharges => stompCharges;
+    public int StompMaxCharges => MaxStompCharges;
+    public float StompFill { get; private set; } = 1f;
+
     /// <summary>Chain Stomp's trade-off — its extra charges come with a longer cooldown.</summary>
     private float StompCooldown => stompCooldown + (Pack.Instance != null ? Pack.Instance.Stats.StompCooldownPenalty : 0f);
 
@@ -267,19 +272,16 @@ public class PlayerStompController : MonoBehaviour
             {
                 Vector2 pushDirection = toEnemy.normalized;
                 float targetDistance = radius + stompPushBeyondRadius;
-                Vector2 targetPosition = playerPos + (pushDirection * targetDistance);
+                Vector2 from = enemyRb.position;
+                float travel = Vector2.Distance(from, playerPos + pushDirection * targetDistance);
 
-                RaycastHit2D pushWallCheck = Physics2D.Raycast(
-                    enemyCol.transform.position, pushDirection,
-                    Vector2.Distance(enemyCol.transform.position, targetPosition), stompWallLayer);
-
+                // Sweep the enemy's whole body, not just its centre, so it stops
+                // short of the wall instead of being teleported half into it.
+                RaycastHit2D pushWallCheck = Physics2D.CircleCast(from, BodyRadius(enemyCol), pushDirection, travel, stompWallLayer);
                 if (pushWallCheck.collider != null)
-                {
-                    float safeDistance = pushWallCheck.distance - 0.5f;
-                    targetPosition = (Vector2)enemyCol.transform.position + (pushDirection * safeDistance);
-                }
+                    travel = Mathf.Max(0f, pushWallCheck.distance - PushWallSkin);
 
-                enemyCol.transform.position = targetPosition;
+                enemyRb.position = from + pushDirection * travel;
 
                 if (knockbackForce <= 0f)
                     enemyRb.linearVelocity = Vector2.zero;
@@ -287,6 +289,20 @@ public class PlayerStompController : MonoBehaviour
                     ApplyKnockback(enemyCol, enemyRb, pushDirection * knockbackForce);
             }
         }
+    }
+
+    // Gap left between a pushed enemy and the wall it's pushed towards.
+    private const float PushWallSkin = 0.05f;
+
+    /// <summary>World-space radius of the collider's body, for the push sweep.</summary>
+    private static float BodyRadius(Collider2D col)
+    {
+        if (col is CircleCollider2D circle)
+        {
+            Vector3 scale = circle.transform.lossyScale;
+            return circle.radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y));
+        }
+        return Mathf.Min(col.bounds.extents.x, col.bounds.extents.y);
     }
 
     /// <summary>Routes through EnemyMovement when present so the enemy's attack is interrupted like any other knockback.</summary>
@@ -305,6 +321,8 @@ public class PlayerStompController : MonoBehaviour
 
     private void SetFill(float amount)
     {
+        StompFill = amount;
+
         if (lightIcon != null)
             lightIcon.fillAmount = amount;
 

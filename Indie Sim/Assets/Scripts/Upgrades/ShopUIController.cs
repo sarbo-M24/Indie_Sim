@@ -450,6 +450,7 @@ public class ShopUIController : MonoBehaviour
         RoguelikeManager.Instance?.SetGameplayInputEnabled(false);
         CursorController.Instance?.SetCursorOverride(this, true);
         BurningCigsHUD.Instance?.SetVisible(false);
+        GameHUD.Instance?.SetVisible(false);
 
         RefreshCoinsText();
         ClearSelection();
@@ -478,6 +479,7 @@ public class ShopUIController : MonoBehaviour
         InputManager.SetPlayerBlocked(this, false);
         CursorController.Instance?.SetCursorOverride(this, false);
         BurningCigsHUD.Instance?.SetVisible(true);
+        GameHUD.Instance?.SetVisible(true);
     }
 
     /// <summary>Fresh visit: the first offerCount cards get offers, the rest are hidden.</summary>

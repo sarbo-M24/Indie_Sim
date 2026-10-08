@@ -60,7 +60,7 @@ Rigidbody2D:
     m_Bits: 0
   m_Interpolate: 0
   m_SleepingMode: 1
-  m_CollisionDetection: 0
+  m_CollisionDetection: 1
   m_Constraints: 0
 --- !u!114 &8619650427343124073
 MonoBehaviour:
@@ -77,14 +77,38 @@ MonoBehaviour:
   minTeleporterUses: 1
   maxTeleporterUses: 2
   maxSpawnTimeSeconds: 180
+  playerObject: {fileID: 0}
+  bulletPool: {fileID: 0}
+  wallLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  playerLayer:
+    serializedVersion: 2
+    m_Bits: 0
   maxHealth: 500
   attackDamage: 10
   attackCooldown: 1.5
   moveSpeed: 4
-  wallBounceMultiplier: 1.2
+  maxSpeed: 15
+  speedIncreasePerBounce: 0.5
   directionChangeInterval: 2
+  shieldHealth: 100
+  shieldColor: {r: 0, g: 0.8, b: 1, a: 0.5}
+  shieldVisualPrefab: {fileID: 0}
+  wallStickDuration: 5
+  stickDistance: 0.5
+  bulletsPerWave: 20
+  angleBetweenBullets: 18
+  timeBetweenWaves: 0.3
+  timeBetweenAttacks: 1.5
+  bulletSpeed: 8
+  bulletLifetime: 5
+  bulletDamage: 5
+  wallCheckDistance: 1
   flashDuration: 0.1
   damageColor: {r: 1, g: 0, b: 0, a: 1}
+  stuckColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  whiteSpriteRenderer: {fileID: 0}
   coinPrefab: {fileID: 0}
   minCoins: 10
   maxCoins: 20
@@ -94,6 +118,8 @@ MonoBehaviour:
   damageSound: {fileID: 0}
   deathSound: {fileID: 0}
   bounceSound: {fileID: 0}
+  shieldBreakSound: {fileID: 0}
+  shootSound: {fileID: 0}
 --- !u!58 &7605775269371339135
 CircleCollider2D:
   m_ObjectHideFlags: 0
@@ -175,7 +201,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -1247100275
-  m_SortingLayer: 3
+  m_SortingLayer: 4
   m_SortingOrder: 0
   m_Sprite: {fileID: 21300000, guid: 823c56a6c33cbac4d98e4b1f8ca9f53d, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}

@@ -22,6 +22,9 @@ public class Pack : MonoBehaviour
     public PackStats Stats { get; private set; } = PackStats.Baseline;
     public bool IsFull => _held.Count >= MaxSlots;
 
+    /// <summary>Raised after every Recompute — the held cigs or their burn state may have changed.</summary>
+    public event System.Action Changed;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -175,6 +178,7 @@ public class Pack : MonoBehaviour
     public void Recompute()
     {
         Stats = ComputeStats(_held);
+        Changed?.Invoke();
     }
 
     /// <summary>
