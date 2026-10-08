@@ -52,18 +52,28 @@ MonoBehaviour:
   warningColor: {r: 1, g: 1, b: 0, a: 1}
   activeColor: {r: 1, g: 0, b: 0, a: 1}
   glowColor: {r: 1, g: 0.00000004768372, b: 0, a: 1}
-  fadeInCurve:
+  startScale: 3
+  scaleInCurve:
     serializedVersion: 2
     m_Curve:
     - serializedVersion: 3
       time: 0
       value: 0
-      inSlope: 0
-      outSlope: 0
+      inSlope: 0.043656003
+      outSlope: 0.043656003
       tangentMode: 0
       weightedMode: 0
       inWeight: 0
-      outWeight: 0
+      outWeight: 0.37786543
+    - serializedVersion: 3
+      time: 0.749826
+      value: 0.27973518
+      inSlope: 1.3067303
+      outSlope: 1.3067303
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.3870931
     - serializedVersion: 3
       time: 1
       value: 1

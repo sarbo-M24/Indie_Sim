@@ -576,6 +576,9 @@ public class BossEnemy : MonoBehaviour, IDamageable
 
     public int GetCurrentHealth() => currentHealth;
     public int GetMaxHealth() => maxHealth;
+    public bool HasShield() => hasShield;
+    public int GetCurrentShieldHealth() => currentShieldHealth;
+    public int GetMaxShieldHealth() => shieldHealth;
     public bool IsDead() => isDead;
     public GameObject GetGameObject() => gameObject;
 }

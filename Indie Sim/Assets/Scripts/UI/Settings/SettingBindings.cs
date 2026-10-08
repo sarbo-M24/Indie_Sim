@@ -7,7 +7,8 @@ public enum FloatSetting
     UiVolume,
     ScreenShake,
     CameraLead,
-    FlashIntensity,
+    DamageFlashIntensity, // GameSettings.flashIntensity (field name kept so saved settings carry over)
+    PsychedelicIntensity,
 }
 
 /// <summary>On/off settings. Picked per ToggleRow in the Inspector.</summary>
@@ -43,7 +44,8 @@ public static class SettingBindings
             case FloatSetting.UiVolume: return s.uiVolume;
             case FloatSetting.ScreenShake: return s.screenShake;
             case FloatSetting.CameraLead: return s.cameraLead;
-            case FloatSetting.FlashIntensity: return s.flashIntensity;
+            case FloatSetting.DamageFlashIntensity: return s.flashIntensity;
+            case FloatSetting.PsychedelicIntensity: return s.psychedelicIntensity;
             default: return 0f;
         }
     }
@@ -60,7 +62,8 @@ public static class SettingBindings
                 case FloatSetting.UiVolume: s.uiVolume = value; break;
                 case FloatSetting.ScreenShake: s.screenShake = value; break;
                 case FloatSetting.CameraLead: s.cameraLead = value; break;
-                case FloatSetting.FlashIntensity: s.flashIntensity = value; break;
+                case FloatSetting.DamageFlashIntensity: s.flashIntensity = value; break;
+                case FloatSetting.PsychedelicIntensity: s.psychedelicIntensity = value; break;
             }
         });
     }

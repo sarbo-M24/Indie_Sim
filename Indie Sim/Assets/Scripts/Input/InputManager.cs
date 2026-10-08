@@ -40,6 +40,9 @@ public static class InputManager
     /// <summary>True when the last meaningful input came from a gamepad; flips back on any mouse/keyboard input.</summary>
     public static bool UsingGamepad { get; private set; }
 
+    /// <summary>Raised when UsingGamepad flips (the player switched between pad and mouse/keyboard).</summary>
+    public static event System.Action<bool> OnUsingGamepadChanged;
+
     /// <summary>Screen-space pointer position, via the UI map's Point action.</summary>
     public static Vector2 PointerPosition => Controls.UI.Point.ReadValue<Vector2>();
 
@@ -52,6 +55,7 @@ public static class InputManager
         lastStickAim = Vector2.up;
         appliedStickSwap = null;
         UsingGamepad = false;
+        OnUsingGamepadChanged = null;
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -149,7 +153,11 @@ public static class InputManager
         if (change != InputActionChange.ActionPerformed) return;
         if (obj is not InputAction action || action.activeControl == null) return;
 
-        UsingGamepad = action.activeControl.device is Gamepad;
+        bool usingGamepad = action.activeControl.device is Gamepad;
+        if (usingGamepad == UsingGamepad) return;
+
+        UsingGamepad = usingGamepad;
+        OnUsingGamepadChanged?.Invoke(usingGamepad);
     }
 
     private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)

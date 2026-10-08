@@ -42,8 +42,10 @@ public class PlayerHealth : MonoBehaviour
     public void SetDashInvulnerable(bool value) => isDashInvulnerable = value;
 
     [Header("Death Settings")]
+    [Tooltip("Body sprite shown on death. Leave empty to hide the player entirely.")]
     public Sprite deathSprite;
-    public float deathDelay = 3f;
+    [Tooltip("Seconds between death and the death panel (which freezes the game).")]
+    public float deathDelay = 0.75f;
     public GameObject deathUIPanel;
     public Sprite aliveSprite;
 
@@ -344,8 +346,7 @@ public class PlayerHealth : MonoBehaviour
                 playerAnimationController.Animator.enabled = false;
         }
 
-        if (spriteRenderer != null) spriteRenderer.color = originalColor;
-        if (deathSprite != null && spriteRenderer != null) spriteRenderer.sprite = deathSprite;
+        ApplyDeathVisual();
 
         if (rb != null)
         {
@@ -364,6 +365,27 @@ public class PlayerHealth : MonoBehaviour
             GameManager.Instance.FinishRun(RunEndReason.Death, () => StartCoroutine(ShowDeathUI()));
         else
             StartCoroutine(ShowDeathUI());
+    }
+
+    /// <summary>
+    /// Swaps the body to deathSprite and hides every other player sprite
+    /// (feet etc.) so only the corpse remains. With no deathSprite the body
+    /// is hidden too.
+    /// </summary>
+    private void ApplyDeathVisual()
+    {
+        foreach (SpriteRenderer sr in GetComponentsInChildren<SpriteRenderer>())
+        {
+            if (sr == spriteRenderer && deathSprite != null)
+            {
+                sr.color = originalColor;
+                sr.sprite = deathSprite;
+            }
+            else
+            {
+                sr.enabled = false;
+            }
+        }
     }
 
     private IEnumerator ShowDeathUI()

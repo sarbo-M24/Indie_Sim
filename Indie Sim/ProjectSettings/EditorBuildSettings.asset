@@ -44,6 +44,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/BossArena.unity
     guid: d990140c25ac42e4e86fca39dc49b16f
+  - enabled: 1
+    path: Assets/Scenes/Tutorial.unity
+    guid: bac20530ebbd29a4fa540a4f244a41f2
   m_configObjects:
     com.unity.adaptiveperformance.google.android.provider_settings: {fileID: 11400000, guid: 83ce9056178cf2849b146fce0665d566, type: 2}
     com.unity.adaptiveperformance.loader_settings: {fileID: 11400000, guid: 3257b4a80cb28494eae1fac225750df8, type: 2}

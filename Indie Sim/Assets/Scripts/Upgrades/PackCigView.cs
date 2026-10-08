@@ -7,8 +7,10 @@ using UnityEngine.UI;
 /// <summary>
 /// One cig currently held in the pack, shown in the shop. Deliberately a
 /// different prefab from the Buy offers (UpgradeCardView): no framed box,
-/// no name/cost — just the cig image as a button. Clicking selects it for
-/// burning, which lifts it up out of the pack; ShopUIController owns the one
+/// no name/cost — just the cig image as a button. Hover (or gamepad focus)
+/// borders it and lifts it up out of the pack; clicking selects it for
+/// burning, which shows the select highlight and keeps it lifted after the
+/// hover ends. ShopUIController owns the one
 /// shared Burn button and decides when the selection clears. Hover reports up
 /// to ShopUIController, which shows the shared cursor tooltip. A fixed pool
 /// sits in the scene (never instantiated at runtime); the controller
@@ -26,8 +28,8 @@ public class PackCigView : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
     [Tooltip("Optional select highlight, shown while this cig is selected.")]
     [SerializeField] private GameObject selectedHighlight;
 
-    [Header("Lift on select")]
-    [Tooltip("What moves up when selected. Must be a CHILD (not this root, which the pack's layout group positions). Defaults to the icon.")]
+    [Header("Lift on hover / select")]
+    [Tooltip("What moves up when hovered or selected. Must be a CHILD (not this root, which the pack's layout group positions). Defaults to the icon.")]
     [SerializeField] private RectTransform liftTarget;
     [SerializeField] private float liftDistance = 25f;
     [SerializeField] private float liftDuration = 0.1f;
@@ -40,6 +42,7 @@ public class PackCigView : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
     private Vector2 _restPosition;
     private Coroutine _liftRoutine;
     private Outline _focusOutline;
+    private bool _focused;
 
     public CigInstance BoundInstance { get; private set; }
     public bool IsSelected { get; private set; }
@@ -107,26 +110,36 @@ public class PackCigView : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
 
     public void SetSelected(bool selected)
     {
-        bool changed = IsSelected != selected;
+        bool wasLifted = IsLifted;
         IsSelected = selected;
         if (selectedHighlight != null) selectedHighlight.SetActive(selected);
+        UpdateLift(wasLifted);
+    }
 
+    /// <summary>Border + lift on the cig art while hovered or gamepad-focused. A selected cig (chosen for burning) also gets the highlight and stays lifted.</summary>
+    public void SetFocused(bool focused)
+    {
+        bool wasLifted = IsLifted;
+        _focused = focused;
+        if (_focusOutline != null) _focusOutline.enabled = focused;
+        UpdateLift(wasLifted);
+    }
+
+    private bool IsLifted => IsSelected || _focused;
+
+    private void UpdateLift(bool wasLifted)
+    {
         if (liftTarget == null) return;
+        UpdateHitArea();
         if (!isActiveAndEnabled)
         {
             liftTarget.anchoredPosition = TargetPosition();
             return;
         }
-        if (!changed) return;
+        if (wasLifted == IsLifted) return;
 
         StopLiftTween();
         _liftRoutine = StartCoroutine(TweenLift(TargetPosition()));
-    }
-
-    /// <summary>Border on the cig art while hovered or gamepad-focused — separate from SetSelected's lift (chosen for burning).</summary>
-    public void SetFocused(bool focused)
-    {
-        if (_focusOutline != null) _focusOutline.enabled = focused;
     }
 
     public void OnPointerEnter(PointerEventData eventData)
@@ -139,7 +152,30 @@ public class PackCigView : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
         OnHoverExit?.Invoke(this);
     }
 
-    private Vector2 TargetPosition() => _restPosition + (IsSelected ? Vector2.up * liftDistance : Vector2.zero);
+    /// <summary>
+    /// The icon is the hover hit area and it moves with the lift — hovering
+    /// near its bottom edge would lift it out from under the pointer, drop it,
+    /// and flicker. While lifted, its raycast area stretches back down over
+    /// the rest spot (in the icon's own space, so the pack's rotation is fine).
+    /// </summary>
+    private void UpdateHitArea()
+    {
+        if (icon == null) return;
+        if (!IsLifted || liftTarget.parent == null)
+        {
+            icon.raycastPadding = Vector4.zero;
+            return;
+        }
+
+        Vector3 down = icon.rectTransform.InverseTransformVector(
+            liftTarget.parent.TransformVector(Vector3.down * liftDistance));
+        // raycastPadding is (left, bottom, right, top); negative grows the area.
+        icon.raycastPadding = new Vector4(
+            Mathf.Min(down.x, 0f), Mathf.Min(down.y, 0f),
+            -Mathf.Max(down.x, 0f), -Mathf.Max(down.y, 0f));
+    }
+
+    private Vector2 TargetPosition() => _restPosition + (IsLifted ? Vector2.up * liftDistance : Vector2.zero);
 
     private void StopLiftTween()
     {

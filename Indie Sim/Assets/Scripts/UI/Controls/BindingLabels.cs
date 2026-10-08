@@ -21,8 +21,13 @@ public static class BindingLabels
         bool isGamepad = slash > 0 && path.StartsWith("<Gamepad>");
         if (!isGamepad) return action.GetBindingDisplayString(bindingIndex);
 
+        return PadControl(path.Substring(slash + 1)) ?? action.GetBindingDisplayString(bindingIndex);
+    }
+
+    /// <summary>Name of a gamepad control ("buttonEast" → "B" / "Circle"), or null if it has no special name.</summary>
+    public static string PadControl(string control)
+    {
         bool playStation = Gamepad.current is DualShockGamepad;
-        string control = path.Substring(slash + 1);
         switch (control)
         {
             case "buttonSouth": return playStation ? "Cross" : "A";
@@ -42,7 +47,7 @@ public static class BindingLabels
             case "dpad/down": return "D-Pad Down";
             case "dpad/left": return "D-Pad Left";
             case "dpad/right": return "D-Pad Right";
-            default: return action.GetBindingDisplayString(bindingIndex);
+            default: return null;
         }
     }
 }

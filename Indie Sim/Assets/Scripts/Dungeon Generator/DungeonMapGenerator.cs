@@ -201,10 +201,15 @@ public class DungeonMapGenerator : MonoBehaviour
     [SerializeField] private GameObject teleporterPrefab;
 
     [Header("Enemy Spawning")]
-    [SerializeField] private GameObject enemySpawnerPrefab; // Assign your EnemySpawner prefab in inspector
-    [SerializeField] private bool spawnEnemySpawnersInMainRooms = false;
-    [SerializeField] private float spawnerOffsetFromCenter = 0f; // Optional offset from exact center
+    [Tooltip("Spawner prefabs to place. Each is placed on its own, by its own Dungeon Placement settings (EnemySpawner), so one room can get e.g. corner spawners and a centre spawner.")]
+    [SerializeField] private List<GameObject> spawnerPrefabs = new List<GameObject>();
+    [Tooltip("Used when Spawner Prefabs is empty (the original single-prefab setup), and by spawner respawn.")]
+    [SerializeField] private GameObject enemySpawnerPrefab;
+    [Tooltip("Spawner respawn only. Dungeon generation uses each prefab's Min Distance From Other Spawners.")]
     [SerializeField] private float minDistanceBetweenSpawners = 5f;
+    [Tooltip("Spawners stay at least this far (world units) from the teleporter at the last main room's centre.")]
+    [SerializeField] private float teleporterClearance = 3f;
+    private readonly List<Vector3> placedSpawnerPositions = new List<Vector3>();
 
     [Header("Spawner Respawn")]
     [SerializeField] private bool enableSpawnerRespawn = true;
@@ -796,131 +801,204 @@ public class DungeonMapGenerator : MonoBehaviour
     }
 
     /// <summary>
-    /// Spawns an EnemySpawner in the center of the specified room
+    /// Places every spawner prefab in every room its Dungeon Placement
+    /// settings allow. Start/end rooms are only used if a prefab opts in.
     /// </summary>
-    /// <param name="room">The room to spawn the enemy spawner in</param>
-    private void SpawnEnemySpawnerInRoom(Room room)
+    private void SpawnAllEnemySpawners()
     {
-        // Don't spawn if no prefab assigned
-        if (enemySpawnerPrefab == null)
+        if (currentMapData == null) return;
+        placedSpawnerPositions.Clear();
+
+        List<GameObject> prefabs = spawnerPrefabs.Where(prefab => prefab != null).ToList();
+        if (prefabs.Count == 0 && enemySpawnerPrefab != null) prefabs.Add(enemySpawnerPrefab);
+        if (prefabs.Count == 0)
         {
-            Debug.LogWarning("EnemySpawner prefab not assigned to DungeonMapGenerator!");
+            Debug.LogWarning("No EnemySpawner prefab assigned to DungeonMapGenerator!");
             return;
         }
 
-        // Get all valid edge positions for this room (must have exactly 2 adjacent walls)
-        List<Vector3> validSpawnPositions = GetValidEdgeSpawnPositions(room);
+        foreach (Room room in currentMapData.rooms.Values)
+            foreach (GameObject prefab in prefabs)
+                SpawnSpawnersInRoom(prefab, room);
+    }
 
-        if (validSpawnPositions.Count == 0)
+    private void SpawnSpawnersInRoom(GameObject prefab, Room room)
+    {
+        EnemySpawner settings = prefab.GetComponent<EnemySpawner>();
+        if (settings == null)
         {
-            Debug.LogWarning($"No valid edge spawn positions found in room {room.uniqueId}");
+            Debug.LogWarning($"Spawner prefab '{prefab.name}' has no EnemySpawner component — skipped.");
             return;
         }
 
-        // Spawn multiple spawners at different valid edge positions
-        int spawnersToCreate = Mathf.Min(UnityEngine.Random.Range(1, 4), validSpawnPositions.Count); // 1-3 spawners
-        
-        for (int i = 0; i < spawnersToCreate; i++)
+        if ((settings.roomTypes & GetSpawnerRoomType(room)) == 0) return;
+
+        int count = UnityEngine.Random.Range(settings.perRoomMin, Mathf.Max(settings.perRoomMin, settings.perRoomMax) + 1);
+        if (count == 0) return;
+
+        List<Vector3> candidates = GetSpawnerCandidates(settings, room);
+        if (candidates.Count == 0)
         {
-            // Find a valid position that's far enough from existing spawners
-            Vector3? spawnerPosition = FindValidSpawnerPosition(validSpawnPositions);
-            
-            if (!spawnerPosition.HasValue)
-            {
-                Debug.Log($"Could not find valid spawner position in room {room.uniqueId} (too close to other spawners)");
-                break; // No more valid positions
-            }
+            Debug.LogWarning($"No {settings.placement} spawner positions in room {room.uniqueId} ({room.type}, size {room.size}) for '{prefab.name}'.");
+            return;
+        }
 
-            // Instantiate the enemy spawner at edge position
-            GameObject spawnedSpawner = Instantiate(enemySpawnerPrefab, spawnerPosition.Value, Quaternion.identity);
+        Shuffle(candidates);
 
-            // Optional: Set up the spawner with room-specific settings
-            EnemySpawner spawnerScript = spawnedSpawner.GetComponent<EnemySpawner>();
-            if (spawnerScript != null)
-            {
-                ConfigureSpawnerForRoom(spawnerScript, room);
-            }
+        int placed = 0;
+        foreach (Vector3 position in candidates)
+        {
+            if (placed >= count) break;
+            if (IsNearPlacedSpawner(position, settings.minDistanceFromOtherSpawners)) continue;
 
-            // Optional: Parent the spawner to a room container for organization
+            GameObject spawnedSpawner = Instantiate(prefab, position, Quaternion.identity);
+            placedSpawnerPositions.Add(position);
+            placed++;
+
+            ConfigureSpawnerForRoom(spawnedSpawner.GetComponent<EnemySpawner>(), room);
             OrganizeSpawnerInHierarchy(spawnedSpawner, room);
 
-            Debug.Log($"Enemy spawner created in room {room.uniqueId} at edge position {spawnerPosition.Value}");
+            Debug.Log($"Enemy spawner '{prefab.name}' ({settings.placement}) created in room {room.uniqueId} at {position}");
         }
+
+        if (placed < count)
+            Debug.Log($"Room {room.uniqueId}: placed {placed}/{count} '{prefab.name}' spawners (the rest were too close to other spawners).");
     }
 
-    /// <summary>
-    /// Finds a valid spawner position from the list that respects minimum distance from other spawners
-    /// Removes the chosen position from the list
-    /// </summary>
-    private Vector3? FindValidSpawnerPosition(List<Vector3> candidatePositions)
+    private SpawnerRoomTypes GetSpawnerRoomType(Room room)
     {
-        // Find all existing spawners in the scene
-        EnemySpawner[] existingSpawners = FindObjectsOfType<EnemySpawner>();
+        if (room.uniqueId == currentMapData.startRoomId) return SpawnerRoomTypes.Start;
+        if (room.uniqueId == currentMapData.endRoomId) return SpawnerRoomTypes.End;
 
-        // Try each candidate position
-        for (int i = candidatePositions.Count - 1; i >= 0; i--)
+        switch (room.type)
         {
-            Vector3 candidatePos = candidatePositions[i];
-            bool tooClose = false;
-
-            // Check distance to all existing spawners
-            foreach (var spawner in existingSpawners)
-            {
-                float distance = Vector3.Distance(candidatePos, spawner.transform.position);
-                if (distance < minDistanceBetweenSpawners)
-                {
-                    tooClose = true;
-                    break;
-                }
-            }
-
-            // If this position is valid, use it and remove from list
-            if (!tooClose)
-            {
-                candidatePositions.RemoveAt(i);
-                return candidatePos;
-            }
+            case RoomType.START_ROOM: return SpawnerRoomTypes.Start;
+            case RoomType.END_ROOM: return SpawnerRoomTypes.End;
+            case RoomType.DISTRIBUTIVE_NODE_ROOM: return SpawnerRoomTypes.Distributive;
+            case RoomType.LEAF_NODE_ROOM: return SpawnerRoomTypes.Leaf;
+            case RoomType.ARTERY_CORNER_ROOM: return SpawnerRoomTypes.ArteryCorner;
+            default: return SpawnerRoomTypes.MainArtery;
         }
-
-        return null; // No valid position found
     }
 
-    /// <summary>
-    /// Finds valid spawn positions along room edges that have EXACTLY 2 adjacent walls
-    /// </summary>
-    private List<Vector3> GetValidEdgeSpawnPositions(Room room)
+    private bool IsNearPlacedSpawner(Vector3 position, float minDistance)
     {
-        List<Vector3> validPositions = new List<Vector3>();
+        foreach (Vector3 placed in placedSpawnerPositions)
+            if (Vector3.Distance(position, placed) < minDistance)
+                return true;
+        return false;
+    }
 
-        int minX = Mathf.RoundToInt(room.worldPosition.x - room.size.x / 2f);
-        int maxX = Mathf.RoundToInt(room.worldPosition.x + room.size.x / 2f);
-        int minY = Mathf.RoundToInt(room.worldPosition.y - room.size.y / 2f);
-        int maxY = Mathf.RoundToInt(room.worldPosition.y + room.size.y / 2f);
+    private static void Shuffle<T>(List<T> list)
+    {
+        for (int i = list.Count - 1; i > 0; i--)
+        {
+            int j = UnityEngine.Random.Range(0, i + 1);
+            (list[i], list[j]) = (list[j], list[i]);
+        }
+    }
 
-        // Check all positions along the room edges
+    // ───────────── spawner candidate tiles ─────────────
+
+    /// <summary>World positions (tile centres) where `settings` allows a spawner in `room`.</summary>
+    private List<Vector3> GetSpawnerCandidates(EnemySpawner settings, Room room)
+    {
+        List<Vector3> candidates;
+        switch (settings.placement)
+        {
+            case SpawnerPlacement.AlongWall: candidates = GetEdgePositionsWithWalls(room, 1); break;
+            case SpawnerPlacement.Center: candidates = GetCenterPositions(room, settings.centerJitter, settings.wallClearance); break;
+            case SpawnerPlacement.Interior: candidates = GetInteriorPositions(room, settings.wallClearance); break;
+            default: candidates = GetEdgePositionsWithWalls(room, 2); break;
+        }
+
+        // Keep clear of the teleporter (last main room, at its centre).
+        if (room.uniqueId == currentMapData.lastMainRoomId && teleporterPrefab != null)
+        {
+            Vector3 teleporter = new Vector3(Mathf.Round(room.worldPosition.x), Mathf.Round(room.worldPosition.y), 0f);
+            candidates.RemoveAll(position => Vector3.Distance(position, teleporter) < teleporterClearance);
+        }
+
+        return candidates;
+    }
+
+    /// <summary>Corner spawners (the original placement): room-edge tiles with exactly 2 adjacent walls.</summary>
+    private List<Vector3> GetValidEdgeSpawnPositions(Room room) => GetEdgePositionsWithWalls(room, 2);
+
+    /// <summary>Room-edge floor tiles with exactly `wallCount` walls among their 4 neighbours.</summary>
+    private List<Vector3> GetEdgePositionsWithWalls(Room room, int wallCount)
+    {
+        GetRoomTileBounds(room, out int minX, out int maxX, out int minY, out int maxY);
+        List<Vector3> positions = new List<Vector3>();
+
+        foreach (Vector2Int pos in GetRoomFloorTiles(room))
+        {
+            bool isEdge = pos.x == minX || pos.x == maxX - 1 || pos.y == minY || pos.y == maxY - 1;
+            if (isEdge && CountAdjacentWalls(pos) == wallCount)
+                positions.Add(TileCenter(pos));
+        }
+
+        return positions;
+    }
+
+    /// <summary>Floor tiles within `jitter` tiles of the room centre (the tile(s) at the centre when 0) with `clearance`.</summary>
+    private List<Vector3> GetCenterPositions(Room room, float jitter, int clearance)
+    {
+        // 0.75 covers the 4 tiles around an even-sized room's centre (0.71 away).
+        float maxDistance = jitter + 0.75f;
+        List<Vector3> positions = new List<Vector3>();
+
+        foreach (Vector2Int pos in GetRoomFloorTiles(room))
+        {
+            Vector3 center = TileCenter(pos);
+            if (Vector2.Distance(center, room.worldPosition) <= maxDistance && HasWallClearance(pos, clearance))
+                positions.Add(center);
+        }
+
+        return positions;
+    }
+
+    /// <summary>Floor tiles anywhere in the room with `clearance` tiles of floor all round.</summary>
+    private List<Vector3> GetInteriorPositions(Room room, int clearance)
+    {
+        List<Vector3> positions = new List<Vector3>();
+        foreach (Vector2Int pos in GetRoomFloorTiles(room))
+            if (HasWallClearance(pos, clearance))
+                positions.Add(TileCenter(pos));
+        return positions;
+    }
+
+    // Every tile within `clearance` (a square) is floor, so no wall and no void.
+    private bool HasWallClearance(Vector2Int pos, int clearance)
+    {
+        for (int dx = -clearance; dx <= clearance; dx++)
+            for (int dy = -clearance; dy <= clearance; dy++)
+                if (!currentMapData.floorTiles.Contains(new Vector2Int(pos.x + dx, pos.y + dy)))
+                    return false;
+        return true;
+    }
+
+    private IEnumerable<Vector2Int> GetRoomFloorTiles(Room room)
+    {
+        GetRoomTileBounds(room, out int minX, out int maxX, out int minY, out int maxY);
         for (int x = minX; x < maxX; x++)
-        {
             for (int y = minY; y < maxY; y++)
             {
                 Vector2Int pos = new Vector2Int(x, y);
-
-                // Only consider edge tiles
-                bool isEdge = (x == minX || x == maxX - 1 || y == minY || y == maxY - 1);
-                if (!isEdge) continue;
-
-                // Count adjacent walls
-                int wallCount = CountAdjacentWalls(pos);
-
-                // Valid ONLY if has EXACTLY 2 adjacent walls
-                if (wallCount == 2)
-                {
-                    validPositions.Add(new Vector3(pos.x + 0.5f, pos.y + 0.5f, 0f));
-                }
+                if (currentMapData.floorTiles.Contains(pos)) yield return pos;
             }
-        }
-
-        return validPositions;
     }
+
+    // Same bounds as IsPositionInRoom: max is exclusive.
+    private static void GetRoomTileBounds(Room room, out int minX, out int maxX, out int minY, out int maxY)
+    {
+        minX = Mathf.RoundToInt(room.worldPosition.x - room.size.x / 2f);
+        maxX = Mathf.RoundToInt(room.worldPosition.x + room.size.x / 2f);
+        minY = Mathf.RoundToInt(room.worldPosition.y - room.size.y / 2f);
+        maxY = Mathf.RoundToInt(room.worldPosition.y + room.size.y / 2f);
+    }
+
+    private static Vector3 TileCenter(Vector2Int pos) => new Vector3(pos.x + 0.5f, pos.y + 0.5f, 0f);
 
     /// <summary>
     /// Counts how many of the 4 cardinal directions (up, down, left, right) have walls
@@ -956,21 +1034,6 @@ public class DungeonMapGenerator : MonoBehaviour
     /// <summary>
     /// Configure spawner settings based on room properties
     /// </summary>
-    private void SpawnAllEnemySpawners()
-    {
-        if (currentMapData == null) return;
-
-        // Spawn in ALL rooms except start and end
-        foreach (var room in currentMapData.rooms.Values)
-        {
-            // Skip start and end rooms
-            if (room.uniqueId == currentMapData.startRoomId || room.uniqueId == currentMapData.endRoomId)
-                continue;
-                
-            SpawnEnemySpawnerInRoom(room);
-        }
-    }
-
     /// <param name="spawner">The spawner component to configure</param>
     /// <param name="room">The room containing the spawner</param>
     private void ConfigureSpawnerForRoom(EnemySpawner spawner, Room room)
@@ -1663,6 +1726,11 @@ public class DungeonMapGenerator : MonoBehaviour
                 }
             }
         }
+
+        // Tiles spawners were placed on this dungeon
+        Gizmos.color = Color.yellow;
+        foreach (Vector3 position in placedSpawnerPositions)
+            Gizmos.DrawWireCube(position, Vector3.one * 0.9f);
     }
     
 

@@ -22,6 +22,10 @@ public class MainMenu : MonoBehaviour
     [Tooltip("Resumes the most recently played slot with an active run. Hidden when there is none.")]
     [SerializeField] private GameObject continueButton;
 
+    [Header("Tutorial")]
+    [Tooltip("Replays the tutorial (back to this menu at the end). Hidden until it has been finished once.")]
+    [SerializeField] private GameObject tutorialButton;
+
     private void Start()
     {
         if (settingsPanel != null) settingsPanel.gameObject.SetActive(false);
@@ -29,6 +33,7 @@ public class MainMenu : MonoBehaviour
         if (slotSelectPanel != null) slotSelectPanel.gameObject.SetActive(false);
 
         if (continueButton != null) continueButton.SetActive(false);
+        if (tutorialButton != null) tutorialButton.SetActive(false);
         StartCoroutine(RefreshContinueWhenReady());
 
         if (menuButtons != null && !menuButtons.TryGetComponent(out GamepadMenuPanel _))
@@ -76,12 +81,34 @@ public class MainMenu : MonoBehaviour
     {
         while (GameSession.Instance == null) yield return null;
         RefreshContinue();
+        if (tutorialButton != null) tutorialButton.SetActive(GameSession.Instance.Persistent.TutorialCompleted);
     }
 
     private void RefreshContinue()
     {
         if (continueButton == null || GameSession.Instance == null) return;
         continueButton.SetActive(GameSession.Instance.Saves.FindContinueSlot() != SaveService.NoSlot);
+    }
+
+    /// <summary>Wire to the main menu's Tutorial button.</summary>
+    public void PlayTutorial()
+    {
+        GameManager.Instance.ReplayTutorial();
+    }
+
+    /// <summary>
+    /// Wire to the main menu's Quit button — the game's only exit besides
+    /// Alt-F4. Nothing to save here: runs save at their checkpoints, the
+    /// profile on run end and settings on change.
+    /// </summary>
+    public void QuitGame()
+    {
+        Debug.Log("[MainMenu] Quit.");
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
     }
 
     public void LoadScene2 ()

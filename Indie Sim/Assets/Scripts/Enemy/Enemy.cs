@@ -19,11 +19,7 @@ public class Enemy : MonoBehaviour, IDamageable
     private Transform playerTransform; // Reference to player for blood direction
 
     [Header("Loot Drop")]
-    public GameObject coinPrefab; // Assign your coin prefab here
-    public int minCoins = 1; // Minimum coins to drop
-    public int maxCoins = 3; // Maximum coins to drop
-    public float coinDropForce = 3f; // How much force to apply to coins (makes them bounce)
-    public float coinSpreadRadius = 0.5f; // How spread out the coins spawn
+    [SerializeField] private CoinDrop coinDrop = new CoinDrop { dropChance = 0.3f, maxCoins = 2 };
 
     [Header("Attack Settings")]
     public int attackDamage = 10;
@@ -257,8 +253,8 @@ public class Enemy : MonoBehaviour, IDamageable
         // PLAY BLOOD SPLATTER EFFECT ON DEATH
         SpawnBloodSplatterOnDeath();
 
-        // SPAWN COINS ON DEATH
-        DropCoins();
+        // Fodder only drops coins on a low chance (coinDrop.dropChance).
+        coinDrop.Drop(transform.position);
 
         // Notify death (important for spawner tracking)
         OnDeath?.Invoke();
@@ -308,51 +304,6 @@ public class Enemy : MonoBehaviour, IDamageable
             // Fallback: spawn blood with random direction if no player found
             Vector2 randomDirection = Random.insideUnitCircle.normalized;
             bloodEffect.SpawnBloodSplatter(transform.position, randomDirection);
-        }
-    }
-
-    /// <summary>
-    /// Drops coins when enemy dies
-    /// Spawns random number of coins with slight spread and upward force
-    /// </summary>
-    private void DropCoins()
-    {
-        // Check if coin prefab is assigned
-        if (coinPrefab == null)
-        {
-            Debug.LogWarning($"Enemy '{gameObject.name}': No coin prefab assigned. Skipping coin drop.");
-            return;
-        }
-
-        // Determine how many coins to drop
-        int coinCount = Random.Range(minCoins, maxCoins + 1); // +1 because max is exclusive
-
-        Debug.Log($"Enemy '{gameObject.name}': Dropping {coinCount} coins");
-
-        // Spawn each coin
-        for (int i = 0; i < coinCount; i++)
-        {
-            // Calculate random offset position for coin spread
-            Vector2 randomOffset = Random.insideUnitCircle * coinSpreadRadius;
-            Vector3 spawnPosition = transform.position + new Vector3(randomOffset.x, randomOffset.y, 0f);
-
-            // Instantiate the coin
-            GameObject coin = Instantiate(coinPrefab, spawnPosition, Quaternion.identity);
-
-            // Optional: Add some upward force to make coins "pop" out
-            Rigidbody2D coinRb = coin.GetComponent<Rigidbody2D>();
-            if (coinRb != null)
-            {
-                // Add random upward and outward force
-                Vector2 randomForce = new Vector2(
-                    Random.Range(-coinDropForce, coinDropForce),
-                    Random.Range(coinDropForce * 0.5f, coinDropForce)
-                );
-                coinRb.AddForce(randomForce, ForceMode2D.Impulse);
-
-                // Add slight rotation for visual effect
-                coinRb.AddTorque(Random.Range(-5f, 5f), ForceMode2D.Impulse);
-            }
         }
     }
 
@@ -523,10 +474,6 @@ public class Enemy : MonoBehaviour, IDamageable
             Gizmos.color = Color.black;
             Gizmos.DrawWireSphere(transform.position, 1f);
         }
-
-        // Draw coin drop radius
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, coinSpreadRadius);
     }
 
     #endregion

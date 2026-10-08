@@ -1,10 +1,13 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>Single gamepad buttons with their own glyph (outside the hint rows).</summary>
+public enum GamepadGlyph { RightShoulder, West, North, Start }
+
 /// <summary>
 /// Gamepad button sprites per controller family: four hint slots (shown by
-/// ControllerHintPanel) and the right shoulder (RB / R1, shown by
-/// ShoulderGlyphImage). A missing sprite returns null — the caller hides that
+/// ControllerHintPanel) and single buttons (RB / R1, X, Y, Start, shown by
+/// GamepadGlyphImage). A missing sprite returns null — the caller hides that
 /// slot — and logs one warning per missing entry, not one per refresh.
 /// </summary>
 [CreateAssetMenu(fileName = "ControllerGlyphSet", menuName = "UI/Controller Glyph Set")]
@@ -21,6 +24,20 @@ public class ControllerGlyphSet : ScriptableObject
     [SerializeField] private Sprite xboxRightShoulder;
     [SerializeField] private Sprite playStationRightShoulder;
 
+    [Header("Virtual keyboard shortcuts")]
+    [Tooltip("X — Backspace")]
+    [SerializeField] private Sprite xboxWest;
+    [Tooltip("Square — Backspace")]
+    [SerializeField] private Sprite playStationWest;
+    [Tooltip("Y — Space")]
+    [SerializeField] private Sprite xboxNorth;
+    [Tooltip("Triangle — Space")]
+    [SerializeField] private Sprite playStationNorth;
+    [Tooltip("Menu — Done")]
+    [SerializeField] private Sprite xboxStart;
+    [Tooltip("Options — Done")]
+    [SerializeField] private Sprite playStationStart;
+
     [System.NonSerialized] private readonly HashSet<string> _warned = new HashSet<string>();
 
     public Sprite GetHint(ControllerFamily family, int slot)
@@ -30,10 +47,18 @@ public class ControllerGlyphSet : ScriptableObject
         return Checked(sprite, $"{Name(family)} hint slot {slot}");
     }
 
-    public Sprite GetRightShoulder(ControllerFamily family)
+    public Sprite GetButton(ControllerFamily family, GamepadGlyph button)
     {
-        Sprite sprite = family == ControllerFamily.PlayStation ? playStationRightShoulder : xboxRightShoulder;
-        return Checked(sprite, $"{Name(family)} right shoulder");
+        bool ps = family == ControllerFamily.PlayStation;
+        Sprite sprite;
+        switch (button)
+        {
+            case GamepadGlyph.West: sprite = ps ? playStationWest : xboxWest; break;
+            case GamepadGlyph.North: sprite = ps ? playStationNorth : xboxNorth; break;
+            case GamepadGlyph.Start: sprite = ps ? playStationStart : xboxStart; break;
+            default: sprite = ps ? playStationRightShoulder : xboxRightShoulder; break;
+        }
+        return Checked(sprite, $"{Name(family)} {button}");
     }
 
     private Sprite Checked(Sprite sprite, string entry)

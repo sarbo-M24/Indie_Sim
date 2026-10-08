@@ -34,6 +34,9 @@ public class CthulhuEyeEnemy : MonoBehaviour, IDamageable
     [SerializeField] private int maxHealth = 100;
     [SerializeField] private int currentHealth;
 
+    [Header("Loot Drop")]
+    [SerializeField] private CoinDrop coinDrop = new CoinDrop();
+
     [Header("References")]
     private Transform player;
     private Rigidbody2D rb;
@@ -204,8 +207,15 @@ public class CthulhuEyeEnemy : MonoBehaviour, IDamageable
     public bool IsDead() => currentHealth <= 0;
     public GameObject GetGameObject() => gameObject;
 
+    private bool isDead;
+
     private void Die()
     {
+        if (isDead) return;
+        isDead = true;
+
+        BloodSplatterEffect.SpawnDeathSplatter(transform.position);
+        coinDrop.Drop(transform.position);
         Destroy(gameObject);
     }
 

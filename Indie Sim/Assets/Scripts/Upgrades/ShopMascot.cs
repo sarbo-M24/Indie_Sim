@@ -5,7 +5,9 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// The shop cat. Hover shows a "Pet" cursor tooltip; click pets it — cycles
+/// The shop cat. Hover shows a "Pet" cursor tooltip; click pets it. On
+/// gamepad the cat is a navigation stop (ShopUIController wires it in left
+/// of the cards): focusing it shows the same tooltip, A pets it. Petting cycles
 /// the pet sprites while it hops: each hop is a Y squish toward its feet,
 /// then a lift on its Y position — and a speech bubble
 /// reacts to ShopUIController's local events (shop-local chatter —
@@ -61,6 +63,8 @@ public class ShopMascot : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     private Coroutine _petRoutine;
     private Coroutine _bubbleRoutine;
     private string _lastLine;
+    private Selectable _catSelectable;
+    private bool _padFocused;
     private ShopUIController _subscribedShop;
 
     private void Awake()
@@ -78,7 +82,39 @@ public class ShopMascot : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             _restPosition = _catRect.localPosition;
             _restScale = _catRect.localScale;
             _restSprite = catImage.sprite;
+
+            // Gamepad focus target. No transition — focus shows as the Pet
+            // tooltip; ShopUIController sets its navigation.
+            if (!catImage.TryGetComponent(out _catSelectable))
+                _catSelectable = catImage.gameObject.AddComponent<Selectable>();
+            _catSelectable.transition = Selectable.Transition.None;
         }
+    }
+
+    /// <summary>The cat's gamepad focus target, for ShopUIController's navigation. Null until Awake.</summary>
+    public Selectable Selectable => _catSelectable;
+
+    // Gamepad: focus on the cat stands in for hover; Submit (A) pets.
+    private void Update()
+    {
+        if (_catSelectable == null || PauseController.IsFrozen) return;
+
+        bool focused = InputManager.UsingGamepad && EventSystem.current != null
+            && EventSystem.current.currentSelectedGameObject == _catSelectable.gameObject;
+
+        if (focused != _padFocused)
+        {
+            _padFocused = focused;
+            if (tooltip != null)
+            {
+                // Centred on the cat panel (this root) — it doesn't hop, the cat image does.
+                if (focused) tooltip.ShowSmall(this, petLabel, (RectTransform)transform);
+                else tooltip.Hide(this);
+            }
+        }
+
+        if (focused && InputManager.Controls.UI.Submit.WasPressedThisFrame())
+            PetCat();
     }
 
     private void OnEnable()
@@ -114,6 +150,7 @@ public class ShopMascot : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         _bubbleRoutine = null;
         ResetCat();
         if (bubbleText != null) bubbleText.maxVisibleCharacters = int.MaxValue;
+        _padFocused = false;
         if (tooltip != null) tooltip.Hide(this);
     }
 
@@ -138,7 +175,10 @@ public class ShopMascot : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         if (tooltip != null) tooltip.Hide(this);
     }
 
-    public void OnPointerClick(PointerEventData eventData)
+    public void OnPointerClick(PointerEventData eventData) => PetCat();
+
+    // Click, or A while the cat has gamepad focus.
+    private void PetCat()
     {
         if (_catRect == null || !isActiveAndEnabled) return;
 

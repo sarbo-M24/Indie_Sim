@@ -290,7 +290,7 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
                 {
                     ""name"": """",
                     ""id"": ""03636600-41c1-42ef-84f7-98d419686d21"",
-                    ""path"": ""<Gamepad>/buttonNorth"",
+                    ""path"": ""<Gamepad>/rightShoulder"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": ""Gamepad"",
@@ -334,7 +334,7 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
                 {
                     ""name"": """",
                     ""id"": ""513a80a3-f802-4534-a4b5-ab799b93ae01"",
-                    ""path"": ""<Gamepad>/buttonSouth"",
+                    ""path"": ""<Gamepad>/leftShoulder"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": ""Gamepad"",
@@ -455,6 +455,15 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
                     ""name"": ""ShopContinue"",
                     ""type"": ""Button"",
                     ""id"": ""bd27f91d-3b80-425d-be85-519ced512dd6"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""DeleteSlot"",
+                    ""type"": ""Button"",
+                    ""id"": ""83470ff6-7b36-466b-9dd0-d9985dd8035d"",
                     ""expectedControlType"": ""Button"",
                     ""processors"": """",
                     ""interactions"": """",
@@ -670,6 +679,17 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
                     ""action"": ""ShopContinue"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""952a8f87-2be7-4c9e-9fbe-6a900a5e7194"",
+                    ""path"": ""<Gamepad>/buttonWest"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Gamepad"",
+                    ""action"": ""DeleteSlot"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -726,6 +746,7 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
         m_UI_ScrollWheel = m_UI.FindAction("ScrollWheel", throwIfNotFound: true);
         m_UI_Pause = m_UI.FindAction("Pause", throwIfNotFound: true);
         m_UI_ShopContinue = m_UI.FindAction("ShopContinue", throwIfNotFound: true);
+        m_UI_DeleteSlot = m_UI.FindAction("DeleteSlot", throwIfNotFound: true);
     }
 
     ~@PlayerControls()
@@ -990,6 +1011,7 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
     private readonly InputAction m_UI_ScrollWheel;
     private readonly InputAction m_UI_Pause;
     private readonly InputAction m_UI_ShopContinue;
+    private readonly InputAction m_UI_DeleteSlot;
     /// <summary>
     /// Provides access to input actions defined in input action map "UI".
     /// </summary>
@@ -1041,6 +1063,10 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "UI/ShopContinue".
         /// </summary>
         public InputAction @ShopContinue => m_Wrapper.m_UI_ShopContinue;
+        /// <summary>
+        /// Provides access to the underlying input action "UI/DeleteSlot".
+        /// </summary>
+        public InputAction @DeleteSlot => m_Wrapper.m_UI_DeleteSlot;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -1097,6 +1123,9 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
             @ShopContinue.started += instance.OnShopContinue;
             @ShopContinue.performed += instance.OnShopContinue;
             @ShopContinue.canceled += instance.OnShopContinue;
+            @DeleteSlot.started += instance.OnDeleteSlot;
+            @DeleteSlot.performed += instance.OnDeleteSlot;
+            @DeleteSlot.canceled += instance.OnDeleteSlot;
         }
 
         /// <summary>
@@ -1138,6 +1167,9 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
             @ShopContinue.started -= instance.OnShopContinue;
             @ShopContinue.performed -= instance.OnShopContinue;
             @ShopContinue.canceled -= instance.OnShopContinue;
+            @DeleteSlot.started -= instance.OnDeleteSlot;
+            @DeleteSlot.performed -= instance.OnDeleteSlot;
+            @DeleteSlot.canceled -= instance.OnDeleteSlot;
         }
 
         /// <summary>
@@ -1338,5 +1370,12 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnShopContinue(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "DeleteSlot" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnDeleteSlot(InputAction.CallbackContext context);
     }
 }

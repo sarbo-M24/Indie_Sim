@@ -196,9 +196,74 @@ public static class SlotSelectUIBuilder
         so.FindProperty("nameInput").objectReferenceValue = input;
         so.FindProperty("confirmButton").objectReferenceValue = confirm;
         so.FindProperty("cancelButton").objectReferenceValue = cancel;
+        so.FindProperty("keyboard").objectReferenceValue = BuildKeyboard(dialogRoot, input);
         so.ApplyModifiedPropertiesWithoutUndo();
 
         dialogRoot.gameObject.SetActive(false);
         return dialog;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  VIRTUAL KEYBOARD (gamepad only)
+    // ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Adds the on-screen keyboard to an existing name prompt (one built
+    /// before the keyboard existed). Open Main menu.unity, run, save the scene.
+    /// </summary>
+    [MenuItem("Tools/Save/Build Virtual Keyboard", priority = 102)]
+    private static void BuildKeyboardForExistingPrompt()
+    {
+        if (Application.isPlaying)
+        {
+            EditorUtility.DisplayDialog("Build Virtual Keyboard", "Exit Play mode first.", "OK");
+            return;
+        }
+
+        NamePromptDialog prompt = Object.FindFirstObjectByType<NamePromptDialog>(FindObjectsInactive.Include);
+        if (prompt == null)
+        {
+            EditorUtility.DisplayDialog("Build Virtual Keyboard", "Open Main menu.unity first (no NamePromptDialog in the open scene).", "OK");
+            return;
+        }
+
+        SerializedObject so = new SerializedObject(prompt);
+        SerializedProperty keyboardProp = so.FindProperty("keyboard");
+        if (keyboardProp.objectReferenceValue != null)
+        {
+            Debug.Log("[SlotSelectUIBuilder] The name prompt already has a virtual keyboard — nothing to do.");
+            return;
+        }
+
+        TMP_InputField input = so.FindProperty("nameInput").objectReferenceValue as TMP_InputField;
+        VirtualKeyboard keyboard = BuildKeyboard((RectTransform)prompt.transform, input);
+        Undo.RegisterCreatedObjectUndo(keyboard.gameObject, "Build Virtual Keyboard");
+        Undo.RecordObject(prompt, "Build Virtual Keyboard");
+        keyboardProp.objectReferenceValue = keyboard;
+        so.ApplyModifiedProperties();
+
+        EditorSceneManager.MarkSceneDirty(prompt.gameObject.scene);
+        Debug.Log("[SlotSelectUIBuilder] Built the virtual keyboard under the name prompt. Save the scene.");
+    }
+
+    // A panel along the bottom of the prompt's full-screen blocker, below the
+    // centred box. Keys come from the hidden template at runtime.
+    private static VirtualKeyboard BuildKeyboard(RectTransform dialogRoot, TMP_InputField input)
+    {
+        RectTransform panel = NewRect("Virtual Keyboard", dialogRoot);
+        Place(panel, Bottom, new Vector2(0f, 170f), new Vector2(840f, 320f));
+        AddImage(panel, Box);
+
+        Button template = MakeButton(panel, "Key Template", "A", Center, Vector2.zero, new Vector2(74f, 52f), Card, 28);
+        template.gameObject.SetActive(false);
+
+        VirtualKeyboard keyboard = panel.gameObject.AddComponent<VirtualKeyboard>();
+        SerializedObject so = new SerializedObject(keyboard);
+        so.FindProperty("target").objectReferenceValue = input;
+        so.FindProperty("keyTemplate").objectReferenceValue = template;
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        panel.gameObject.SetActive(false);
+        return keyboard;
     }
 }

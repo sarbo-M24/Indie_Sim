@@ -13,14 +13,20 @@ MonoBehaviour:
   m_Name: Controller Glyph Set
   m_EditorClassIdentifier: Assembly-CSharp::ControllerGlyphSet
   xboxHints:
-  - {fileID: 21300000, guid: 4b0cdfa921e28a148b763123a653197c, type: 3}
+  - {fileID: 21300000, guid: f2b7ce1b883d4ac428a3001243300b19, type: 3}
   - {fileID: 21300000, guid: 7b8c1f6f9e2bc9e4081da61dc2c77d82, type: 3}
   - {fileID: 21300000, guid: fc9ab7f51291df445a5181312eb6ab77, type: 3}
   - {fileID: 21300000, guid: 1c5bc1c982312e641afbaf961b1d5028, type: 3}
   playStationHints:
-  - {fileID: 21300000, guid: 4b0cdfa921e28a148b763123a653197c, type: 3}
+  - {fileID: 21300000, guid: f2b7ce1b883d4ac428a3001243300b19, type: 3}
   - {fileID: 21300000, guid: 7b8c1f6f9e2bc9e4081da61dc2c77d82, type: 3}
   - {fileID: 21300000, guid: 9340864b7dd691b46b3c3e37c35feea8, type: 3}
   - {fileID: 21300000, guid: 43cbc84f27d8b594d84e98480ce3f7f5, type: 3}
   xboxRightShoulder: {fileID: 21300000, guid: 629baea1bc926464fa8a49e184631730, type: 3}
   playStationRightShoulder: {fileID: 21300000, guid: 02e2e2eb7742de248a3d8cc524de02d4, type: 3}
+  xboxWest: {fileID: 21300000, guid: c8f71a306b72280428256cdc8ff85c55, type: 3}
+  playStationWest: {fileID: 21300000, guid: 864c6c26d44892d418a10c6304a855e8, type: 3}
+  xboxNorth: {fileID: 21300000, guid: 1d6075a10831131448e1c3d7183087f5, type: 3}
+  playStationNorth: {fileID: 21300000, guid: 3324085717426d74d8bb7befd35997ee, type: 3}
+  xboxStart: {fileID: 21300000, guid: 9494582647255224abb72b76fb17ed58, type: 3}
+  playStationStart: {fileID: 21300000, guid: 9494582647255224abb72b76fb17ed58, type: 3}

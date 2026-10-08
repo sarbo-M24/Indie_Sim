@@ -2,11 +2,92 @@
 
 **Purpose:** session handoff context for Claude Code. Read this before resuming work, alongside `architecture-refactor-plan-v3.md` (Assets/Scripts) and `AUDIT.md` (project root), which remain the source of truth for what each phase is supposed to do.
 
-**Status as of this report:** Phases 1–6 of 8 implemented and committed. **Phase 7 is deferred post-demo** — per `DemoBeforeIGDC.md`, the Upgrade System took its place in the active work sequence starting 2026-09-17. For current work, see `UpgradeSystemPlan.md` (execution plan + running status) and `UpgradeSystemSpec.md` (design) instead of the Phase 7 section below, which is preserved as-is for whenever Phase 7 is picked back up post-demo. **Controller support / input work (2026-09-28)** is tracked in the Status block at the top of `SettingsAudioInputPlan.md`.
+**Status as of this report:** Phases 1–6 of 8 implemented and committed. **Phase 7 is deferred post-demo** — per `DemoBeforeIGDC.md`, the Upgrade System took its place in the active work sequence starting 2026-09-17. For current work, see `UpgradeSystemPlan.md` (execution plan + running status) and `UpgradeSystemSpec.md` (design) instead of the Phase 7 section below, which is preserved as-is for whenever Phase 7 is picked back up post-demo. **Controller support / input work (2026-09-28)** is tracked in the Status block at the top of `SettingsAudioInputPlan.md`. **Tutorial scene + settings additions (2026-10-07)** — see "Latest session" below; implemented and compile-checked, **not yet Play-mode tested or committed** (commit once the checklist there passes).
 
 **Branch:** `Sarbo`.
 
-**Commits:** `Phase 1 Done` → `Phase 2 Done` → `Phase 3 Done` → `Phase 4 and 5 Done` → `Phase 4 and 5 Bug fixes` → `Phase 6 done`. Working tree is clean.
+**Commits:** `Phase 1 Done` → `Phase 2 Done` → `Phase 3 Done` → `Phase 4 and 5 Done` → `Phase 4 and 5 Bug fixes` → `Phase 6 done`. (Later work is in its own commits — see `git log`. As of 2026-10-07 the working tree has the uncommitted tutorial/settings work described below.)
+
+---
+
+## Latest session (2026-10-07) — Tutorial, tutorial spawners, settings sliders
+
+**Status:** all compiles. Nothing Play-mode tested yet, nothing committed. Commit after the test checklist at the end of this section passes.
+
+### 1. First-run tutorial (`Tutorial.unity`)
+- **When it plays:** the first new run on this machine goes to `Tutorial` instead of `RoguelikeMode`. Finishing it sets `PersistentStats.TutorialCompleted`, saved to `profile.json` as the new global section `global.tutorial` (`GlobalTutorialSection`). That flag covers every slot, so later new runs in any slot skip straight to the dungeon. Old profiles without the section load as "not done".
+- **Routing:** `GameManager.StartNewRunInSlot` → `LoadRunStart()`, which picks the tutorial or the dungeon. `GameManager.FinishTutorial()` sets the flag, writes the profile, re-saves the run at `LevelStart` (so tutorial coins survive a quit during dungeon 1), then `LoadGame()`.
+- **Scene contents:** gameplay objects copied from `RoguelikeMode` (player, Cinemachine camera, HUD canvas, volumes, lights, managers, bullet pools, Pack Manager), plus an empty `Grid` with Ground/Walls/Foilage tilemaps that the user has painted 4 rooms into. No `Main Camera` (Boot's persistent camera is used). HUD Timer, the old `TutorialPanel` popup and `Goal Txt` are switched off in this scene's copy. Added to Build Settings.
+- **Scripts** (`Assets/Scripts/Tutorial/`):
+  - `TutorialDirector`: owns the hint bubble, the current zone, finishing the tutorial, and death handling.
+  - `TutorialHintZone`: a trigger box per room with a hint, a required action (Move / Fire / Dash / Stomp / Reload / SwitchWeapon / None), complete text, replay complete text, disable/enable-on-complete objects, and spawners.
+  - `TutorialText`: turns `{Move}`, `{Fire}`, `{Dash}`, `{Stomp}`, `{Reload}`, `{SwitchWeapon}` and `{Pause}` in hint text into the player's current key, or a pad glyph name on gamepad, and follows rebinds.
+  - `Editor/TutorialMenu`: menu items **Tools ▸ Tutorial ▸ Add Hint Zone** and **Replay Tutorial On Next New Run**. The second clears the flag, either live or by editing `profile.json`.
+- **Exit:** the room-4 `Teleporter`, with the new `Teleporter.finishesTutorial` checkbox on and Requires Key off. Room 4's zone switches the teleporter on once that room is complete. `MusicManager.teleporterTransform` points at it.
+- **Hint UI:** `Tutorial Canvas ▸ Hint Banner` holds the user's `chatbox` bubble (rotated 180°, tail at the top right), the cat portrait and `Hint Text`. The text fits inside the bubble's body: it wraps, auto-sizes between 22 and 50, and falls back to an ellipsis. Text is near-black; key names are red.
+- **Death in the tutorial:** `TutorialDirector` registers a `GameManager` run-end interceptor. On death it skips the death screen and the run end, shows "Ouch! Let's try that again." for 1.5 s, then calls `GameManager.RestartTutorial()`. That starts a fresh run without bumping `TotalRuns` (`GameSession.StartNewRun(countAsRun:false)`), saves it, and reloads the tutorial. `RetryRun` and `GiveUpRun` also route through `LoadRunStart()`, so they return to the tutorial while it's unfinished.
+- **Replay from the main menu:** a new **TUTORIAL** button (`Main menu.unity`, wired to `MainMenu.PlayTutorial` → `GameManager.ReplayTutorial`), shown only once `TutorialCompleted` is set. While `GameManager.IsTutorialReplay` is set, nothing writes to a slot:
+  - the exit goes to the main menu;
+  - death and Give Up restart the tutorial;
+  - quit goes to the menu.
+  
+  The flag clears on any `LoadMenu` or `LoadGame`. Room 4 shows its Replay Complete Text: "Nice refresher! … head back to the menu."
+
+### 2. Tutorial enemy spawners
+- `EnemySpawner` gains **`activateByProximity`**. It defaults to on, so the level spawners are unchanged. When it's off, `PlayerSpawnerActivator` ignores the spawner and only `ActivateSpawner()` wakes it. `EnemySpawner` also gains **`IsCleared()`**, true once the spawner is dead and every enemy it released is dead.
+- New prefab variants of `Enemy Spawner` in `Prefabs/Enemies/Tutorial/`. Both spawn fodder only (no ranged enemies or eye), have proximity activation off, and have per-room counts of 0 so dungeon placement never picks them.
+  - **Fodder:** 4 enemies at once, 120 HP.
+  - **Swarm:** 7 enemies (4, then 3 after 0.5 s), 150 HP.
+- **In the scene:** Room 2 has one Fodder spawner. Room 4 has two Swarm spawners 1.4 units apart, 14 enemies in total, which stays under `ActivateEnemies.maxActiveEnemies` (15).
+- **Zone behaviour:** a zone wakes its spawners when the player walks in. With **Require Clear** on, the room only completes when the action has been used and the room is cleared.
+- **Room hints:**
+  - Room 2: "Aim and hold {Fire} to shoot the enemies".
+  - Room 4: "They're swarming! {Stomp} to blast them all at once".
+- **Coins** from tutorial enemies carry into the run on a first playthrough, and are dropped on replay.
+- The main level spawner is **untouched**. Rework and scaling are the next task.
+
+### 3. Settings — Gameplay tab
+- **"Flash Intensity" renamed to "Damage Flash Intensity".** The enum is now `FloatSetting.DamageFlashIntensity`; the saved field is still `flashIntensity`, so players' existing values carry over. What it does: it only scales the red damage vignette on hit, from strength 0.3 up to 0.5. It does **not** affect the player sprite blinking (fully on/off, about 8 times a second), hitstop or camera shake, which is why it seemed to do nothing. **Open offer:** have it also scale the sprite blink (the real photosensitivity concern) and make the vignette at 100% bolder.
+- **New "Psychedelic Blood Intensity" slider** (`GameSettings.psychedelicIntensity`, default 1), placed under the Psychedelic Mode toggle. `PsychedelicBloodController` blends from the normal blood red (`ChunkedGorePainter.bloodColor`) toward the palette by this amount. 0 looks exactly like normal blood. It only does anything while Psychedelic Mode is on.
+- The Gameplay tab's row spacing went from 12 to 7 so six rows fit in the 470 px body.
+
+### Files
+- **New:**
+  - `Scripts/Tutorial/` (`TutorialDirector`, `TutorialHintZone`, `TutorialText`, `Editor/TutorialMenu`)
+  - `Scenes/Tutorial.unity`
+  - `Prefabs/Enemies/Tutorial/` (2 prefab variants)
+- **Changed:**
+  - `GameManager`, `GameSession`, `PersistentStats`, `GlobalSections`, `SaveBootstrap`
+  - `Teleporter`, `EnemySpawner`, `ActivateEnemySpawner` (`PlayerSpawnerActivator`)
+  - `MainMenu`, `GameSettings`, `SettingBindings`, `DamageIndicator`, `PsychedelicBloodController`
+  - `Main menu.unity`, `Settings Panel.prefab`, `EditorBuildSettings.asset`
+
+### Test checklist (before committing)
+1. **First run:** run **Tools ▸ Save ▸ Delete All Saves** (or **Tools ▸ Tutorial ▸ Replay Tutorial On Next New Run**), then Boot → Start → pick a slot. The tutorial opens, the TUTORIAL button is hidden, and the crosshair shows.
+2. **Hints:**
+   - Each room's hint appears in the bubble, stays inside it, and shows the right key for keyboard and for pad.
+   - Room 1: moving completes it.
+   - Room 3: dashing completes it.
+3. **Room 2:** spawners stay asleep until you walk in, then spawn 4 fodder. The room completes only after you fire and every enemy is dead.
+4. **Room 4:** the swarm stays asleep until you enter, then two clumps of 7 appear. A stomp plus a full clear reveals the teleporter.
+5. **Teleporter:**
+   - Loads dungeon 1 with the tutorial's coins.
+   - Quitting during dungeon 1 and pressing Continue still has those coins.
+   - The TUTORIAL button now shows on the main menu.
+6. **Death in the tutorial:** no death screen, the "Ouch" message shows, and the tutorial restarts from Room 1 with 0 coins. Pause ▸ Give Up also restarts it.
+7. **No second tutorial:** a new run in another slot goes straight to dungeon 1.
+8. **Replay from the TUTORIAL button:**
+   - Room 4 shows the replay text, and the teleporter returns to the menu.
+   - Death and Give Up restart the tutorial.
+   - The slot's saved run is untouched (Continue resumes it as before).
+9. **Settings:**
+   - Both sliders show and save.
+   - Psychedelic Blood Intensity at 0% gives normal blood with the mode on, and 100% gives the full rainbow.
+   - Damage Flash at 0% gives no red on hit.
+   - The Gameplay tab's six rows don't overflow, in either the main menu or the pause menu.
+10. **Regression:**
+    - Dungeon spawners still wake by proximity.
+    - Dying in a dungeon still shows the death screen, and Retry goes to dungeon 1.
 
 ---
 

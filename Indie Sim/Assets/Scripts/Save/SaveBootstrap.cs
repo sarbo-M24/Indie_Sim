@@ -26,6 +26,7 @@ public static class SaveBootstrap
         saves.Register(new GlobalAchievementsSection(persistent));
         saves.Register(new GlobalStatsSection(persistent));
         saves.Register(new GlobalDemoSection(persistent));
+        saves.Register(new GlobalTutorialSection(persistent));
 
         // Slot — survives death
         saves.Register(new SlotMetaSection(slot));

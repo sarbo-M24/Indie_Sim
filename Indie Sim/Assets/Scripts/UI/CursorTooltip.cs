@@ -18,7 +18,8 @@ using TMPro;
 /// Reads the pointer through InputManager (UI/Point), the same source
 /// CustomCrosshair uses; the shop shows the hardware cursor via
 /// CursorController, so no custom cursor position needs tracking. On gamepad
-/// it anchors beside the owning element instead (see AnchorScreenPoint). The panel's own VerticalLayoutGroup +
+/// it anchors beside the owning element instead (see AnchorScreenPoint), or
+/// centres on a given rect when the caller passes one (the shop cat's "Pet"). The panel's own VerticalLayoutGroup +
 /// ContentSizeFitter (Preferred/Preferred) size it; this script only caps
 /// each text's preferred width at maxTextWidth so long text wraps.
 ///
@@ -56,6 +57,7 @@ public class CursorTooltip : MonoBehaviour
     private Canvas _rootCanvas;
     private RectTransform _canvasRect;
     private object _owner;
+    private RectTransform _gamepadCenter;
     private bool _initialized;
     private Color _baseBackgroundColor = Color.white;
     private readonly Vector3[] _corners = new Vector3[4];
@@ -93,14 +95,14 @@ public class CursorTooltip : MonoBehaviour
         panel.gameObject.SetActive(false);
     }
 
-    /// <summary>Small mode: a single short label.</summary>
-    public void ShowSmall(object owner, string label)
+    /// <summary>Small mode: a single short label. On gamepad, a non-null gamepadCenter centres the panel on that rect instead of beside the owner.</summary>
+    public void ShowSmall(object owner, string label, RectTransform gamepadCenter = null)
     {
         BeginShow();
         SetMode(Mode.Small);
         SetTint(null);
         SetText(smallLabel, label);
-        Open(owner);
+        Open(owner, gamepadCenter);
     }
 
     /// <summary>Large mode: header, description, an optional stat block (null/empty hides it), and an optional background tint (null = untinted).</summary>
@@ -178,9 +180,10 @@ public class CursorTooltip : MonoBehaviour
         layout.preferredWidth = Mathf.Min(natural, maxTextWidth);
     }
 
-    private void Open(object owner)
+    private void Open(object owner, RectTransform gamepadCenter = null)
     {
         _owner = owner;
+        _gamepadCenter = gamepadCenter;
         transform.SetAsLastSibling();
 
         // Size now so the first positioned frame already uses the real
@@ -206,6 +209,17 @@ public class CursorTooltip : MonoBehaviour
         float scale = _canvasRect.lossyScale.x != 0f ? panel.lossyScale.x / _canvasRect.lossyScale.x : 1f;
         Vector2 size = panel.rect.size * scale;
 
+        // Centred on the anchor (no offset, no flip), still kept on screen.
+        if (CenteringOnGamepad)
+        {
+            Vector2 centerPivot = new Vector2(0.5f, 0.5f);
+            if (panel.pivot != centerPivot) panel.pivot = centerPivot;
+            cursor.x = ClampAxis(cursor.x, 0.5f, size.x, bounds.xMin, bounds.xMax);
+            cursor.y = ClampAxis(cursor.y, 0.5f, size.y, bounds.yMin, bounds.yMax);
+            panel.position = _canvasRect.TransformPoint(cursor);
+            return;
+        }
+
         // Default: below-right of the cursor. Flip to the other side of the
         // cursor on whichever axis would run off the right/bottom edge.
         bool flipX = cursor.x + cursorOffset.x + size.x > bounds.xMax;
@@ -225,12 +239,21 @@ public class CursorTooltip : MonoBehaviour
         panel.position = _canvasRect.TransformPoint(target);
     }
 
+    private bool CenteringOnGamepad => InputManager.UsingGamepad && _gamepadCenter != null;
+
     /// <summary>
     /// The pointer, or on gamepad (no cursor to follow) the owning element's
-    /// top-right corner, so the tooltip sits beside the selected card.
+    /// top-right corner, so the tooltip sits beside the selected card — or
+    /// the centre of the caller's gamepadCenter rect, when given.
     /// </summary>
     private Vector2 AnchorScreenPoint(Camera cam)
     {
+        if (CenteringOnGamepad)
+        {
+            _gamepadCenter.GetWorldCorners(_corners);
+            return RectTransformUtility.WorldToScreenPoint(cam, (_corners[0] + _corners[2]) * 0.5f);
+        }
+
         if (InputManager.UsingGamepad && _owner is Component owner && owner != null && owner.transform is RectTransform rect)
         {
             rect.GetWorldCorners(_corners);

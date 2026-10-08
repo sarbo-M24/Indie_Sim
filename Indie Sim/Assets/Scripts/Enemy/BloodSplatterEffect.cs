@@ -19,9 +19,55 @@ public class BloodSplatterEffect : MonoBehaviour
     public string chunkSortingLayer = "Default";
     public int chunkSortingOrder = 0;
 
-    [Header("Color Tint")]
-    [Tooltip("Tints both the blood splatter prefab's particles and the blood chunks. White = untouched original colors.")]
-    public Color bloodTintColor = Color.white;
+    /// <summary>
+    /// Tints both the blood splatter prefab's particles and the blood chunks.
+    /// White = untouched original colors. Static because every enemy carries its
+    /// own BloodSplatterEffect; PsychedelicBloodController drives it for all.
+    /// </summary>
+    public static Color bloodTintColor = Color.white;
+
+    private static BloodSplatterEffect cachedConfigured;
+
+    /// <summary>
+    /// The scene's BloodSplatterEffect that actually has splatter prefabs, so an
+    /// unconfigured one can't be picked by accident.
+    /// </summary>
+    public static BloodSplatterEffect FindConfigured()
+    {
+        if (cachedConfigured != null && cachedConfigured.HasSplatterPrefabs) return cachedConfigured;
+
+        foreach (BloodSplatterEffect effect in FindObjectsByType<BloodSplatterEffect>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (effect.HasSplatterPrefabs)
+            {
+                cachedConfigured = effect;
+                return effect;
+            }
+        }
+        return null;
+    }
+
+    public bool HasSplatterPrefabs => bloodSplatterPrefabs != null && bloodSplatterPrefabs.Length > 0;
+
+    /// <summary>
+    /// Death splatter for enemies without their own bloodEffect reference:
+    /// sprays away from the player, or in a random direction if there's none.
+    /// </summary>
+    public static void SpawnDeathSplatter(Vector3 position)
+    {
+        BloodSplatterEffect effect = FindConfigured();
+        if (effect == null)
+        {
+            Debug.LogWarning("[BloodSplatterEffect] No configured BloodSplatterEffect in scene. Skipping death splatter.");
+            return;
+        }
+
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+            effect.SpawnBloodSplatter(position, player.transform.position);
+        else
+            effect.SpawnBloodSplatter(position, Random.insideUnitCircle.normalized);
+    }
 
     /// <summary>
     /// Spawns blood splatter at enemy position

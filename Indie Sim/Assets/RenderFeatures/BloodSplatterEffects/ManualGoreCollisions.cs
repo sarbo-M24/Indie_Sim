@@ -24,12 +24,14 @@ public class ManualGoreCollisions : MonoBehaviour
         int numParticlesAlive = ps.GetParticles(particles);
         bool simulationIsWorld = ps.main.simulationSpace == ParticleSystemSimulationSpace.World;
 
+        // Paint a little before death. Checking against exactly one deltaTime
+        // missed particles whenever the next frame ran longer than this one —
+        // they died inside the simulation before ever being painted.
+        float paintWindow = Mathf.Max(Time.deltaTime * 2f, 0.05f);
+
         for (int i = 0; i < numParticlesAlive; i++)
         {
-            // NEW LOGIC: Instead of waiting for death, we check if it's "Hitting the floor"
-            // Or, if you prefer the 'Burst' look, we paint as soon as they slow down (Drag)
-            
-            if (particles[i].remainingLifetime <= Time.deltaTime)
+            if (particles[i].remainingLifetime <= paintWindow)
             {
                 Vector3 pos = simulationIsWorld ? particles[i].position : transform.TransformPoint(particles[i].position);
                 pos.z = 0;

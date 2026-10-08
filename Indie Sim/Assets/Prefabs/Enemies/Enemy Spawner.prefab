@@ -47,6 +47,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e63b8188e5e49e94e8fec3886b580bf8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  placement: 0
+  roomTypes: 15
+  perRoomMin: 1
+  perRoomMax: 3
+  wallClearance: 1
+  centerJitter: 0
+  minDistanceFromOtherSpawners: 5
   startingBudget: 400
   spawnInterval: 0.7
   fodderLevel1:
@@ -84,7 +91,7 @@ MonoBehaviour:
     maxAllowed: 1
     currentSpawned: 0
     spawnGroupSize: 1
-  cthulhuExclusionRadius: 25
+  cthulhuExclusionRadius: 15
   coinPrefab: {fileID: 5576711845111610058, guid: 6507a99d4a98a9e4a91ab2d3fd43d539, type: 3}
   coinRewardMultiplier: 0.01
   coinDropForce: 2

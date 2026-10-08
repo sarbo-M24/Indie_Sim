@@ -32,6 +32,9 @@ public class Teleporter : MonoBehaviour
     [Tooltip("Exact name of the Boss Level scene (must match Build Settings).")]
     [SerializeField] private string bossSceneName = "BossLevel";
 
+    [Tooltip("Tutorial.unity's teleporter: ends the tutorial (never plays again) and loads the first dungeon. Overrides Leads To Boss Level.")]
+    [SerializeField] private bool finishesTutorial = false;
+
     // Core dependencies
     private DungeonMapGenerator mapGenerator;
     private RoguelikeManager roguelikeManager;
@@ -66,13 +69,17 @@ public class Teleporter : MonoBehaviour
         spriteRenderer = GetComponent<SpriteRenderer>();
         animator = GetComponent<Animator>();
 
-        mapGenerator = FindFirstObjectByType<DungeonMapGenerator>();
-        if (mapGenerator == null)
-            Debug.LogError($"Teleporter '{gameObject.name}': DungeonMapGenerator not found!");
+        // The tutorial has no dungeon — it needs neither.
+        if (!finishesTutorial)
+        {
+            mapGenerator = FindFirstObjectByType<DungeonMapGenerator>();
+            if (mapGenerator == null)
+                Debug.LogError($"Teleporter '{gameObject.name}': DungeonMapGenerator not found!");
 
-        roguelikeManager = FindFirstObjectByType<RoguelikeManager>();
-        if (roguelikeManager == null)
-            Debug.LogError($"Teleporter '{gameObject.name}': RoguelikeManager not found!");
+            roguelikeManager = FindFirstObjectByType<RoguelikeManager>();
+            if (roguelikeManager == null)
+                Debug.LogError($"Teleporter '{gameObject.name}': RoguelikeManager not found!");
+        }
 
         SetupTriggerCollider();
 
@@ -81,7 +88,7 @@ public class Teleporter : MonoBehaviour
 
         // ✅ NEW — log destination type on start so you can confirm in Console
         Debug.Log($"Teleporter '{gameObject.name}' initialized. Destination: " +
-                  (leadsToBossLevel ? $"Boss Level ({bossSceneName})" : "Next Dungeon"));
+                  (finishesTutorial ? "First Dungeon (finishes tutorial)" : leadsToBossLevel ? $"Boss Level ({bossSceneName})" : "Next Dungeon"));
     }
 
     private void SetupTriggerCollider()
@@ -124,6 +131,13 @@ public class Teleporter : MonoBehaviour
             return;
         }
 
+        // Idle while no dungeon is running (store, resumed store). The scene
+        // copy that caused a teleport on resume is gone (each dungeon spawns
+        // its own), but this stays as a safety net. Checked here, not in
+        // OnTriggerEnter2D, because PlayerKeyManagement calls this directly.
+        RoguelikeManager manager = roguelikeManager != null ? roguelikeManager : RoguelikeManager.Instance;
+        if (!finishesTutorial && manager != null && !manager.IsDungeonActive) return;
+
         StartCoroutine(ExecuteTeleportSequence());
     }
 
@@ -140,7 +154,11 @@ public class Teleporter : MonoBehaviour
         ClearEnemiesAndSpawners();
 
         // ✅ NEW — branch based on the toggle
-        if (leadsToBossLevel)
+        if (finishesTutorial)
+        {
+            FinishTutorial();
+        }
+        else if (leadsToBossLevel)
         {
             LoadBossLevel();
         }
@@ -160,6 +178,17 @@ public class Teleporter : MonoBehaviour
     {
         Debug.Log("<color=red>Loading Boss Level</color>");
         GameManager.Instance.AdvanceToBoss();
+    }
+
+    // Through TutorialDirector so the hint banner clears and a double trigger
+    // can't finish twice; it calls GameManager.FinishTutorial (flag + first dungeon).
+    private void FinishTutorial()
+    {
+        Debug.Log("<color=lime>Tutorial complete! Loading the first dungeon...</color>");
+        if (TutorialDirector.Instance != null)
+            TutorialDirector.Instance.Finish();
+        else
+            GameManager.Instance.FinishTutorial();
     }
 
     // ✅ NEW — existing dungeon completion logic, extracted into its own method
@@ -251,10 +280,6 @@ public class Teleporter : MonoBehaviour
     #region Trigger Events
     private void OnTriggerEnter2D(Collider2D other)
     {
-        // Idle while no dungeon is running (e.g. resumed into the store, where
-        // it hasn't been moved into a room yet and sits on the player's spawn).
-        if (roguelikeManager != null && !roguelikeManager.IsDungeonActive) return;
-
         if (other.CompareTag("Player"))
         {
             player = other.gameObject;

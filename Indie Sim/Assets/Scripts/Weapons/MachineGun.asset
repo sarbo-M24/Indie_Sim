@@ -17,7 +17,7 @@ MonoBehaviour:
   weaponIcon: {fileID: 0}
   weaponType: 0
   coneAngle: 25
-  coneRange: 30
+  coneRange: 20
   fireRate: 10
   baseDamagePerShot: 25
   baseWidthMultiplier: 1
@@ -29,6 +29,8 @@ MonoBehaviour:
   reloadSound: {fileID: 0}
   muzzleFlashEffect: {fileID: 0}
   hitEffect: {fileID: 0}
+  recoilStrength: 0.5
+  playerKnockback: 0
   magazineCapacity: 60
   reloadTime: 0.8
   hasInfiniteReserve: 1

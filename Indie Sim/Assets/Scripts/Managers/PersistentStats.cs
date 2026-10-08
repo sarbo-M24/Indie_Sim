@@ -14,4 +14,5 @@ public class PersistentStats
     public int TotalRuns;
     public int BestRunDungeonsCleared;
     public bool DemoCompleted; // also the demo dev-panel unlock (global.demo)
+    public bool TutorialCompleted; // first new run goes through Tutorial.unity until set (global.tutorial)
 }

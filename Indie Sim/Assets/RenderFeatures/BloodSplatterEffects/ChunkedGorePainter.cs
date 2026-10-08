@@ -30,6 +30,8 @@ public class ChunkedGorePainter : MonoBehaviour
     
     [Header("Splat Settings")]
     public Vector2 splatSizeRange = new Vector2(0.2f, 0.6f);
+    [Tooltip("Normal ground blood colour. Splats are painted neutral (white) and this is " +
+             "applied as the display tint, so recolouring (psychedelic mode) affects old and new blood alike.")]
     public Color bloodColor = new Color(0.6f, 0.05f, 0.05f, 1f);
     
     [Header("Display Settings")]
@@ -48,9 +50,9 @@ public class ChunkedGorePainter : MonoBehaviour
     private Material splatMaterial;
     private CompositeCollider2D compositeCollider;
 
-    // Live display tint (multiplies every chunk's baked canvas via the
-    // BloodDisplay shader's _Tint). White = untouched. Driven at runtime by
-    // PsychedelicBloodController; applied to new chunks as they load.
+    // Live display tint (multiplies every chunk's neutral canvas via the
+    // BloodDisplay shader's _Tint). Defaults to bloodColor; driven at runtime
+    // by PsychedelicBloodController; applied to new chunks as they load.
     private static readonly int TintID = Shader.PropertyToID("_Tint");
     private static readonly int MainTexID = Shader.PropertyToID("_MainTex");
     private static readonly int BloodMaskID = Shader.PropertyToID("_BloodMask");
@@ -59,6 +61,8 @@ public class ChunkedGorePainter : MonoBehaviour
 
     void Start()
     {
+        currentDisplayTint = bloodColor;
+
         compositeCollider = GetComponent<CompositeCollider2D>();
         
         if (splatShader == null) splatShader = Shader.Find("Hidden/SplatPainter");
@@ -106,12 +110,7 @@ public class ChunkedGorePainter : MonoBehaviour
                 Vector2Int coord = new Vector2Int(x, y);
                 
                 // Only create if it doesn't already exist
-                if (!loadedChunks.ContainsKey(coord))
-                {
-                    BloodChunk newChunk = new BloodChunk(coord, chunkResolution, displayShader);
-                    CreateChunkDisplay(newChunk);
-                    loadedChunks[coord] = newChunk;
-                }
+                GetOrCreateChunk(coord);
             }
         }
     }
@@ -136,10 +135,11 @@ public class ChunkedGorePainter : MonoBehaviour
 
     private void ExecutePaintOnChunk(Vector2Int coord, Vector3 worldPos, float uvSize)
     {
-        // Only paint if chunk already exists (preloaded)
-        if (!loadedChunks.TryGetValue(coord, out BloodChunk chunk))
-            return;
-        
+        // Create on demand: kills outside the preload radius (or before the
+        // first preload) used to silently drop their ground splat.
+        BloodChunk chunk = GetOrCreateChunk(coord);
+        if (chunk == null) return;
+
         Vector2 chunkWorldOrigin = ChunkCoordToWorldOrigin(coord);
         
         Vector2 localPos = new Vector2(worldPos.x - chunkWorldOrigin.x, worldPos.y - chunkWorldOrigin.y);
@@ -148,7 +148,7 @@ public class ChunkedGorePainter : MonoBehaviour
         splatMaterial.SetTexture("_BrushTex", brushTexture);
         splatMaterial.SetVector("_SplatPos", new Vector4(uv.x, uv.y, 0, 0));
         splatMaterial.SetFloat("_SplatSize", uvSize);
-        splatMaterial.SetColor("_Color", bloodColor);
+        splatMaterial.SetColor("_Color", Color.white); // neutral; colour comes from the display tint
         
         RenderTexture tempRT = RenderTexture.GetTemporary(chunk.canvas.width, chunk.canvas.height, 0, RenderTextureFormat.ARGB32);
         Graphics.Blit(chunk.canvas, tempRT); 
@@ -156,6 +156,17 @@ public class ChunkedGorePainter : MonoBehaviour
         RenderTexture.ReleaseTemporary(tempRT);
     }
     
+    private BloodChunk GetOrCreateChunk(Vector2Int coord)
+    {
+        if (loadedChunks.TryGetValue(coord, out BloodChunk chunk)) return chunk;
+        if (displayShader == null || chunkDisplayParent == null) return null; // Start() hasn't run yet
+
+        chunk = new BloodChunk(coord, chunkResolution, displayShader);
+        CreateChunkDisplay(chunk);
+        loadedChunks[coord] = chunk;
+        return chunk;
+    }
+
     void CreateChunkDisplay(BloodChunk chunk)
     {
         GameObject displayObj = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -251,10 +262,8 @@ public class ChunkedGorePainter : MonoBehaviour
     }
     
     /// <summary>
-    /// Runtime hue shift for ALL ground gore (already painted + future chunks).
-    /// Multiplies each chunk's canvas through the BloodDisplay shader's _Tint.
-    /// For vivid results paint splats near-white (set bloodColor bright) so the
-    /// tint fully controls the hue instead of stacking on dark red.
+    /// Runtime colour for ALL ground gore (already painted + future chunks).
+    /// Multiplies each chunk's neutral canvas through the BloodDisplay shader's _Tint.
     /// </summary>
     public void SetDisplayTint(Color tint)
     {
@@ -274,8 +283,15 @@ public class ChunkedGorePainter : MonoBehaviour
         }
     }
 
-    /// <summary>Sets the color future splats are painted with.</summary>
-    public void SetBloodColor(Color color) => bloodColor = color;
+    /// <summary>Returns all ground gore to the normal bloodColor.</summary>
+    public void ResetDisplayTint() => SetDisplayTint(bloodColor);
+
+    /// <summary>Changes the normal blood colour and applies it to all ground gore.</summary>
+    public void SetBloodColor(Color color)
+    {
+        bloodColor = color;
+        ResetDisplayTint();
+    }
 
     Vector2Int WorldToChunkCoord(Vector3 worldPos) => new Vector2Int(Mathf.FloorToInt(worldPos.x / chunkSize), Mathf.FloorToInt(worldPos.y / chunkSize));
     Vector2 ChunkCoordToWorldOrigin(Vector2Int chunkCoord) => new Vector2(chunkCoord.x * chunkSize, chunkCoord.y * chunkSize);

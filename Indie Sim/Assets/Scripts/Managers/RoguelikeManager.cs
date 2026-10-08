@@ -210,8 +210,7 @@ public class RoguelikeManager : MonoBehaviour
     /// <summary>
     /// True from GenerateNewDungeon until that dungeon is completed. False in
     /// the store — including a store resumed from a save, where no dungeon was
-    /// generated and the teleporter still sits at its scene position (the
-    /// player's spawn), so it must not count as clearing anything.
+    /// generated. Teleporter.ActivateTeleporter does nothing while false.
     /// </summary>
     public bool IsDungeonActive { get; private set; }
 

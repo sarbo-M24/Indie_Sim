@@ -11,6 +11,15 @@ public class GameManager : MonoBehaviour
     public string mainMenuScene = "Main Menu";
     public string gameScene = "RoguelikeMode";
     public string bossScene = "BossArena";
+    [Tooltip("Played instead of the first dungeon until the player finishes it once (PersistentStats.TutorialCompleted).")]
+    public string tutorialScene = "Tutorial";
+
+    /// <summary>
+    /// True while the tutorial was opened from the main menu's Tutorial
+    /// button: no run, no slot writes, and its exit leads back to the menu.
+    /// Cleared by any load of the menu or the game.
+    /// </summary>
+    public bool IsTutorialReplay { get; private set; }
 
     [Header("Boss (D1 — one boss for now)")]
     [SerializeField] private BossDefinition defaultBoss;
@@ -36,14 +45,22 @@ public class GameManager : MonoBehaviour
 
     public void LoadMenu()
     {
+        IsTutorialReplay = false;
         PauseController.ResetAll();
         SceneManager.LoadScene(mainMenuScene);
     }
 
     public void LoadGame()
     {
+        IsTutorialReplay = false;
         PauseController.ResetAll();
         SceneManager.LoadScene(gameScene);
+    }
+
+    public void LoadTutorial()
+    {
+        PauseController.ResetAll();
+        SceneManager.LoadScene(tutorialScene);
     }
 
     public void LoadBoss()
@@ -68,11 +85,45 @@ public class GameManager : MonoBehaviour
     /// <summary>
     /// Slot select: new run in `slot` (empty slot → newSlotName is its name;
     /// named slot with no run → null). The slot stays active for the session.
+    /// Until the tutorial has been finished once, the run starts in it instead
+    /// of the first dungeon (TutorialDirector then calls FinishTutorial).
     /// </summary>
     public void StartNewRunInSlot(int slot, string newSlotName)
     {
         Debug.Log($"[GameManager] StartNewRunInSlot({slot}) called.");
         if (!GameSession.Instance.BeginNewRunInSlot(slot, newSlotName)) return;
+        LoadRunStart();
+    }
+
+    /// <summary>Where a brand-new run begins: the tutorial until it's been finished once, then the first dungeon.</summary>
+    private void LoadRunStart()
+    {
+        if (!GameSession.Instance.Persistent.TutorialCompleted && !string.IsNullOrEmpty(tutorialScene))
+            LoadTutorial();
+        else
+            LoadGame();
+    }
+
+    /// <summary>
+    /// Tutorial exit: marks it done in the profile (so it never plays again)
+    /// and drops the player into the run's first dungeon. The run itself was
+    /// already started and written by StartNewRunInSlot — quitting mid-tutorial
+    /// leaves it resumable at LevelStart, and the tutorial plays again on the
+    /// next new run since it was never finished. Re-saved here so the coins
+    /// picked up in the tutorial survive a quit during the first dungeon.
+    /// </summary>
+    public void FinishTutorial()
+    {
+        Debug.Log($"[GameManager] FinishTutorial() called (replay: {IsTutorialReplay}).");
+        if (IsTutorialReplay)
+        {
+            LoadMenu();
+            return;
+        }
+
+        GameSession.Instance.Persistent.TutorialCompleted = true;
+        GameSession.Instance.Save();
+        GameSession.Instance.SaveRun(RunResumePoint.LevelStart);
         LoadGame();
     }
 
@@ -89,8 +140,38 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Tutorial death (TutorialDirector claims it as a run-end interceptor,
+    /// so the run never ends and no death screen shows): a fresh run — coins
+    /// from the failed attempt don't carry over — and the tutorial again.
+    /// Not counted as a run.
+    /// </summary>
+    public void RestartTutorial()
+    {
+        Debug.Log($"[GameManager] RestartTutorial() called (replay: {IsTutorialReplay}).");
+        GameSession.Instance.StartNewRun(countAsRun: false);
+        if (!IsTutorialReplay) GameSession.Instance.SaveRun(RunResumePoint.LevelStart);
+        LoadTutorial();
+    }
+
+    /// <summary>
+    /// Main menu Tutorial button (shown once the tutorial has been finished):
+    /// plays it again outside any run. CurrentRun is swapped for a blank one
+    /// so the tutorial starts clean — safe, since a slot's run is always
+    /// reloaded from disk on Continue — and nothing is written to a slot
+    /// while IsTutorialReplay is set. The exit returns to the main menu.
+    /// </summary>
+    public void ReplayTutorial()
+    {
+        Debug.Log("[GameManager] ReplayTutorial() called.");
+        IsTutorialReplay = true;
+        GameSession.Instance.StartNewRun(countAsRun: false);
+        LoadTutorial();
+    }
+
+    /// <summary>
     /// Death screen Retry: a new run in the same slot — works whether
-    /// death happened in RoguelikeMode or BossArena. The new run is written
+    /// death happened in RoguelikeMode, BossArena or the tutorial (which it
+    /// restarts, since it isn't finished yet). The new run is written
     /// straight away, like any new run.
     /// </summary>
     public void RetryRun()
@@ -98,7 +179,26 @@ public class GameManager : MonoBehaviour
         Debug.Log("[GameManager] RetryRun() called.");
         GameSession.Instance.StartNewRun();
         GameSession.Instance.SaveRun(RunResumePoint.LevelStart);
-        LoadGame();
+        LoadRunStart();
+    }
+
+    /// <summary>
+    /// Pause-menu Give Up: the run ends as a death (profile updated, slot's
+    /// run wiped) and a new run starts in the same slot straight away — no
+    /// death screen. Skips the run-end interceptors: a voluntary end isn't
+    /// something an extra life should catch.
+    /// </summary>
+    public void GiveUpRun()
+    {
+        Debug.Log("[GameManager] GiveUpRun() called.");
+        if (IsTutorialReplay)
+        {
+            RestartTutorial(); // no run to end — and the active slot (if any) must not be wiped
+            return;
+        }
+
+        GameSession.Instance.EndRun(completed: false);
+        RetryRun();
     }
 
     /// <summary>Exit after a finished run (death / Demo Complete screens).</summary>

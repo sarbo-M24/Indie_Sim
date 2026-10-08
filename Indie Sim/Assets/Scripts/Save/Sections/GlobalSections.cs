@@ -95,3 +95,27 @@ public class GlobalDemoSection : SaveSection<DemoDto>
     protected override void Restore(DemoDto dto) => _stats().DemoCompleted = dto.DevPanelUnlocked;
     protected override DemoDto CreateDefault() => new DemoDto();
 }
+
+[Serializable]
+public class TutorialDto
+{
+    public bool Completed;
+}
+
+/// <summary>
+/// global.tutorial — set when the player leaves Tutorial.unity
+/// (PersistentStats.TutorialCompleted). Until then every new run starts there.
+/// </summary>
+public class GlobalTutorialSection : SaveSection<TutorialDto>
+{
+    private readonly Func<PersistentStats> _stats;
+
+    public GlobalTutorialSection(Func<PersistentStats> stats) => _stats = stats;
+
+    public override string Key => "global.tutorial";
+    public override SaveScope Scope => SaveScope.Global;
+
+    protected override TutorialDto Capture() => new TutorialDto { Completed = _stats().TutorialCompleted };
+    protected override void Restore(TutorialDto dto) => _stats().TutorialCompleted = dto.Completed;
+    protected override TutorialDto CreateDefault() => new TutorialDto();
+}

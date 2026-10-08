@@ -41,8 +41,6 @@ public class ShopUIController : MonoBehaviour
     [Tooltip("The pack's one shared Burn button. Only interactable while a pack cig is selected.")]
     [SerializeField] private Button burnButton;
     [SerializeField] private Button continueButton;
-    [Tooltip("Saves the run (resumes here, in the store) and returns to the main menu. Built by Tools/Save/Build Save & Exit + Quit Warning.")]
-    [SerializeField] private Button saveAndExitButton;
 
     [Header("Card slots — fixed pool, hidden when unused")]
     [SerializeField] private UpgradeCardView[] offerCards;
@@ -62,6 +60,18 @@ public class ShopUIController : MonoBehaviour
     [Tooltip("Each reshuffle this visit raises the cost by this %, compounding. Resets every shop visit.")]
     [SerializeField, Min(0f)] private float reshuffleCostIncreasePercent = 50f;
 
+    [Header("Mascot")]
+    [Tooltip("The shop cat — a gamepad stop left of the cards. Falls back to the ShopMascot under the shop panel.")]
+    [SerializeField] private ShopMascot mascot;
+
+    [Header("Action Button Focus")]
+    [Tooltip("Hover / pad-select look of Buy, Burn, Reshuffle and Continue: grow and a tint multiplied into the button's Image.")]
+    [SerializeField] private ButtonFocusGlowSettings actionButtonFocus = new ButtonFocusGlowSettings
+    {
+        focusedScale = 1.1f,
+        focusTint = new Color(1f, 0.82f, 0.78f, 1f),
+    };
+
     [Header("Tooltip")]
     [SerializeField] private CursorTooltip tooltip;
     [Tooltip("Same shared RarityConfig asset the CigData assets use — source of the tooltip's rarity tint.")]
@@ -71,6 +81,7 @@ public class ShopUIController : MonoBehaviour
     private CigInstance _selectedHeld;
     private CigInstance _pendingReplaceOffer;
     private CigInstance _pendingReplaceConflict;
+    private int _replaceResolvedFrame = -1;
     private UpgradeCardView _focusedCard;
     // Clicked card: keeps the Focused look after the pointer leaves, until a click elsewhere (see Update).
     private UpgradeCardView _selectedCard;
@@ -108,6 +119,9 @@ public class ShopUIController : MonoBehaviour
         }
         Instance = this;
 
+        if (mascot == null && shopPanel != null)
+            mascot = shopPanel.GetComponentInChildren<ShopMascot>(true);
+
         if (shopPanel != null)
             shopPanel.SetActive(false);
 
@@ -115,14 +129,27 @@ public class ShopUIController : MonoBehaviour
         if (burnButton != null) burnButton.onClick.AddListener(OnBurnButtonClicked);
         if (reshuffleButton != null) reshuffleButton.onClick.AddListener(OnReshuffleClicked);
         if (continueButton != null) continueButton.onClick.AddListener(OnContinueClicked);
-        if (saveAndExitButton != null) saveAndExitButton.onClick.AddListener(OnSaveAndExitClicked);
 
-        // Hover/gamepad-focus grow on the action buttons. Added here so no
-        // scene edit is needed; a ButtonFocusScale already on the button
-        // (e.g. with tuned values) is kept as-is.
-        foreach (Button actionButton in new[] { buyButton, burnButton, reshuffleButton, continueButton, saveAndExitButton })
-            if (actionButton != null && !actionButton.TryGetComponent(out ButtonFocusScale _))
-                actionButton.gameObject.AddComponent<ButtonFocusScale>();
+        // Hover/gamepad-focus grow + tint on the action buttons, tuned by
+        // actionButtonFocus. The ColorTint's highlighted/selected colours are
+        // flattened so the pad's darker Selected colour doesn't stack on the
+        // tint (same as ButtonFocusStyle does for the menus).
+        foreach (Button actionButton in new[] { buyButton, burnButton, reshuffleButton, continueButton })
+        {
+            if (actionButton == null) continue;
+
+            if (actionButton.transition == Selectable.Transition.ColorTint)
+            {
+                ColorBlock colors = actionButton.colors;
+                colors.highlightedColor = colors.normalColor;
+                colors.selectedColor = colors.normalColor;
+                actionButton.colors = colors;
+            }
+
+            if (!actionButton.TryGetComponent(out ButtonFocusScale focus))
+                focus = actionButton.gameObject.AddComponent<ButtonFocusScale>();
+            focus.EnableGlow(actionButtonFocus);
+        }
 
         if (offerCards != null)
             foreach (UpgradeCardView card in offerCards)
@@ -156,6 +183,11 @@ public class ShopUIController : MonoBehaviour
         // Paused over the shop: the pause menu owns focus and clicks.
         if (PauseController.IsFrozen) return;
 
+        // Replace confirm up (ReplaceConfirmPanel): it's modal and owns focus,
+        // B and clicks until answered — nothing in the shop behind reacts. Also
+        // the answering frame, so the B that cancelled it doesn't drop the pick too.
+        if (_pendingReplaceOffer != null || _replaceResolvedFrame == Time.frameCount) return;
+
         // RB / R1 (UI/ShopContinue): the Continue button's own onClick, so the
         // leaving-the-store checkpoint save runs exactly as for a click. RB has
         // no Player-map binding, and a Button action re-enabled while held
@@ -165,6 +197,8 @@ public class ShopUIController : MonoBehaviour
             continueButton.onClick.Invoke();
             return;
         }
+
+        if (InputManager.Controls.UI.Cancel.WasPressedThisFrame()) CancelSelectionFromGamepad();
 
         RefreshNavigation();
         UIFocus.EnsureSelection(shopPanel != null ? shopPanel.transform : transform, FirstOfferSelectable());
@@ -185,21 +219,44 @@ public class ShopUIController : MonoBehaviour
             ClearBurnSelection();
 
         // Buy selection (and its stuck focus) survives only a click on the
-        // selected card or the Buy button. Left alone while a replace-confirm
-        // is pending — that popup's own buttons would otherwise clear it
-        // before ConfirmReplacePurchase reads it.
-        if (_selectedCard != null && _pendingReplaceOffer == null
-            && !IsUnder(hit, _selectedCard.transform) && !IsUnder(hit, buyButton))
+        // selected card or the Buy button.
+        if (_selectedCard != null && !IsUnder(hit, _selectedCard.transform) && !IsUnder(hit, buyButton))
             ClearBuySelection();
     }
 
+    /// <summary>
+    /// B / Circle drops the picked offer and pack cig — on a pad the only
+    /// other way out of a selection is pressing A on something else. Moving
+    /// focus never clears it (that's how you get from a card to Buy).
+    /// Controller only: Esc shares UI/Cancel but belongs to the pause menu.
+    /// If focus was on Buy/Burn, which this disables, it goes back to the
+    /// card/cig that was picked.
+    /// </summary>
+    private void CancelSelectionFromGamepad()
+    {
+        if (!(InputManager.Controls.UI.Cancel.activeControl?.device is UnityEngine.InputSystem.Gamepad)) return;
+        if (TabbedMenuPanel.BlocksPauseInput) return;
+
+        PackCigView pickedCig = SelectedPackCig();
+        if (_selectedCard == null && pickedCig == null) return;
+
+        Selectable cardSel = _selectedCard != null ? _selectedCard.GetComponent<Selectable>() : null;
+        Selectable cigSel = pickedCig != null ? pickedCig.GetComponent<Selectable>() : null;
+        Transform focus = SelectedTransform();
+        bool onBuy = IsUnder(focus, buyButton), onBurn = IsUnder(focus, burnButton);
+
+        ClearSelection();
+
+        if (onBuy) FocusIfGamepad(cardSel, FirstOfferSelectable(), continueButton);
+        else if (onBurn) FocusIfGamepad(cigSel, continueButton);
+    }
+
     // Pause menu over the shop is already ruled out by the IsFrozen check in Update.
-    // Settings/Controls (whose RB switches tabs) and the replace confirm are modal too.
+    // Settings/Controls (whose RB switches tabs) are modal too; the replace confirm returns earlier in Update.
     private bool CanContinueFromShortcut()
     {
         return continueButton != null && continueButton.IsActive() && continueButton.IsInteractable()
-            && !TabbedMenuPanel.BlocksPauseInput
-            && _pendingReplaceOffer == null;
+            && !TabbedMenuPanel.BlocksPauseInput;
     }
 
     /// <summary>Topmost UI object under the cursor, or null.</summary>
@@ -237,9 +294,10 @@ public class ShopUIController : MonoBehaviour
     /// a cig went down. Rebuilt every frame the shop is open (only written
     /// when it changes) so hidden slots and disabled Buy/Burn are skipped —
     /// focus never lands on something that can't be seen or pressed.
-    ///   Cards: Up/Down through the stack, Down past the last → bottom row, Right → pack.
+    ///   Cards: Up/Down through the stack, Down past the last → bottom row, Right → pack, Left → cat.
+    ///   Cat: Right → cards (the selected one first), or the bottom row if none.
     ///   Pack cigs: Left/Right through the pack, Up → Burn (once a cig is picked), Down → Continue, Left → cards.
-    ///   Bottom row: Buy ↔ Reshuffle ↔ Continue; Up → cards (Continue: → pack).
+    ///   Bottom row: Buy ↔ Reshuffle ↔ Continue, leftmost → cat; Up → cards (Continue: → pack).
     /// </summary>
     private void RefreshNavigation()
     {
@@ -253,6 +311,7 @@ public class ShopUIController : MonoBehaviour
         Selectable buy = Usable(buyButton), burn = Usable(burnButton);
         Selectable reshuffle = Usable(reshuffleButton), cont = Usable(continueButton);
         Selectable bottomLeft = First(buy, reshuffle, cont);
+        Selectable cat = Usable(mascot != null ? mascot.Selectable : null);
 
         PackCigView pickedCig = SelectedPackCig();
         Selectable pickedCigSel = pickedCig != null ? pickedCig.GetComponent<Selectable>() : null;
@@ -262,7 +321,7 @@ public class ShopUIController : MonoBehaviour
             SetNavigation(_navCards[i],
                 up: i > 0 ? _navCards[i - 1] : null,
                 down: i < _navCards.Count - 1 ? _navCards[i + 1] : bottomLeft,
-                left: null,
+                left: cat,
                 right: First(firstCig, burn, cont));
 
         for (int i = 0; i < _navCigs.Count; i++)
@@ -273,10 +332,10 @@ public class ShopUIController : MonoBehaviour
                 right: i < _navCigs.Count - 1 ? _navCigs[i + 1] : null);
 
         SetNavigation(burnButton, up: null, down: First(Usable(pickedCigSel), firstCig, cont), left: First(Usable(selectedCardSel), firstCard), right: null);
-        SetNavigation(buyButton, up: lastCard, down: null, left: null, right: First(reshuffle, cont));
-        SetNavigation(reshuffleButton, up: lastCard, down: null, left: buy, right: cont);
-        SetNavigation(continueButton, up: First(lastCig, burn, lastCard), down: Usable(saveAndExitButton), left: First(reshuffle, buy), right: null);
-        SetNavigation(saveAndExitButton, up: cont, down: null, left: First(reshuffle, buy), right: null);
+        SetNavigation(cat, up: null, down: null, left: null, right: First(Usable(selectedCardSel), firstCard, bottomLeft));
+        SetNavigation(buyButton, up: lastCard, down: null, left: cat, right: First(reshuffle, cont));
+        SetNavigation(reshuffleButton, up: lastCard, down: null, left: First(buy, cat), right: cont);
+        SetNavigation(continueButton, up: First(lastCig, burn, lastCard), down: null, left: First(reshuffle, buy), right: null);
     }
 
     private readonly List<Selectable> _navCards = new List<Selectable>();
@@ -399,6 +458,16 @@ public class ShopUIController : MonoBehaviour
         PopulatePackCigs();
         RefreshReshuffleUI();
     }
+
+    /// <summary>True while the store is showing. The pause menu swaps Exit for Save &amp; Exit then.</summary>
+    public bool IsOpen => shopPanel != null && shopPanel.activeSelf;
+
+    /// <summary>
+    /// Leaving the scene from the store (pause menu Save &amp; Exit / Give Up):
+    /// releases the input block and cursor override, which are static and
+    /// would otherwise outlive the scene.
+    /// </summary>
+    public void CloseForSceneExit() => Close();
 
     private void Close()
     {
@@ -726,14 +795,23 @@ public class ShopUIController : MonoBehaviour
         bool bought = Pack.Instance.BuyWithReplace(offer, _pendingReplaceConflict);
         _pendingReplaceOffer = null;
         _pendingReplaceConflict = null;
+        _replaceResolvedFrame = Time.frameCount;
         FinishBuyAttempt(bought, offer);
     }
 
     /// <summary>Call from a confirmation panel's Cancel button to abandon a pending replace-buy.</summary>
     public void CancelReplacePurchase()
     {
+        if (_pendingReplaceOffer == null) return;
+
         _pendingReplaceOffer = null;
         _pendingReplaceConflict = null;
+        _replaceResolvedFrame = Time.frameCount;
+
+        // The offer stays picked — drop the "confirm to proceed" text and put
+        // pad focus back on Buy (the popup's Cancel it was on is now hidden).
+        ShowDetail(_selectedOffer);
+        FocusIfGamepad(buyButton, FirstOfferSelectable(), continueButton);
     }
 
     private void FinishBuyAttempt(bool bought, CigInstance offer)
@@ -768,6 +846,9 @@ public class ShopUIController : MonoBehaviour
                 detailText.text = reason == PurchaseFailReason.NotEnoughCoins
                     ? "Can't buy — not enough coins."
                     : "Can't buy — pack full.";
+
+            // A failed confirmed replace leaves focus on the hidden popup — back to Buy (no-op from Buy itself).
+            FocusIfGamepad(buyButton, FirstOfferSelectable(), continueButton);
             PurchaseFailed?.Invoke(offer, reason);
         }
     }
@@ -820,11 +901,5 @@ public class ShopUIController : MonoBehaviour
         RoguelikeManager.Instance?.SetGameplayInputEnabled(true);
         Close();
         RoguelikeManager.Instance?.ContinueDungeon();
-    }
-
-    private void OnSaveAndExitClicked()
-    {
-        Close(); // releases the input block and cursor override before the scene goes
-        GameManager.Instance.SaveAndExitToMenu();
     }
 }

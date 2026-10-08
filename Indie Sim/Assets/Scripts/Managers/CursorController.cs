@@ -5,7 +5,9 @@ using UnityEngine.SceneManagement;
 /// <summary>
 /// Sole owner of Cursor.visible/lockState. Lives under [Persistent] in Boot.unity.
 /// Reads the SceneUIMode marker present in the newly loaded scene rather than
-/// comparing scene names as strings.
+/// comparing scene names as strings. Hidden whenever the player is on the pad
+/// (ControllerPresence.IsActive), even where a menu wants it; the first mouse
+/// nudge or key press brings it back.
 /// </summary>
 public class CursorController : MonoBehaviour
 {
@@ -25,12 +27,17 @@ public class CursorController : MonoBehaviour
     private void OnEnable()
     {
         SceneManager.sceneLoaded += HandleSceneLoaded;
+        ControllerPresence.OnChanged += HandleControllerChanged;
     }
 
     private void OnDisable()
     {
         SceneManager.sceneLoaded -= HandleSceneLoaded;
+        ControllerPresence.OnChanged -= HandleControllerChanged;
     }
+
+    // Pad <-> mouse/keyboard switch, or a pad (dis)connected.
+    private void HandleControllerChanged(ControllerFamily family) => Apply();
 
     private void Start()
     {
@@ -61,7 +68,8 @@ public class CursorController : MonoBehaviour
     private void Apply()
     {
         SceneUIMode uiMode = FindFirstObjectByType<SceneUIMode>();
-        bool showCursor = _overrideSources.Count > 0 || (uiMode != null && uiMode.ShowCursor);
+        bool showCursor = (_overrideSources.Count > 0 || (uiMode != null && uiMode.ShowCursor))
+            && !ControllerPresence.IsActive;
 
         Cursor.visible = showCursor;
         Cursor.lockState = showCursor ? CursorLockMode.None : CursorLockMode.Confined;

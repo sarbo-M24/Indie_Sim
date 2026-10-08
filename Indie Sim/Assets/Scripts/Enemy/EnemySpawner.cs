@@ -14,8 +14,45 @@ public class SpawnableEnemy
     public int spawnGroupSize = 1;
 }
 
+/// <summary>Where in a room DungeonMapGenerator puts a spawner.</summary>
+public enum SpawnerPlacement
+{
+    Corner,     // floor tile touching exactly 2 walls (inside corners)
+    AlongWall,  // edge floor tile touching exactly 1 wall
+    Center,     // the room's centre, ± centerJitter tiles
+    Interior    // any floor tile at least wallClearance tiles from a wall
+}
+
+/// <summary>Room kinds a spawner may be placed in (DungeonMapGenerator).</summary>
+[System.Flags]
+public enum SpawnerRoomTypes
+{
+    None = 0,
+    MainArtery = 1 << 0,
+    Distributive = 1 << 1,
+    Leaf = 1 << 2,
+    ArteryCorner = 1 << 3,
+    Start = 1 << 4,
+    End = 1 << 5,
+    AllButStartAndEnd = MainArtery | Distributive | Leaf | ArteryCorner
+}
+
 public class EnemySpawner : MonoBehaviour, IDamageable
 {
+    [Header("Dungeon Placement (read from the prefab by DungeonMapGenerator)")]
+    [Tooltip("Corner: inside corners (the original behaviour). AlongWall: against one wall. Center: room centre ± Center Jitter. Interior: anywhere at least Wall Clearance from walls.")]
+    public SpawnerPlacement placement = SpawnerPlacement.Corner;
+    [Tooltip("Rooms this spawner may appear in.")]
+    public SpawnerRoomTypes roomTypes = SpawnerRoomTypes.AllButStartAndEnd;
+    [Min(0)] public int perRoomMin = 1;
+    [Min(0)] public int perRoomMax = 3;
+    [Tooltip("Center / Interior: every tile within this many tiles of the spawner must be floor, not wall.")]
+    [Min(0)] public int wallClearance = 1;
+    [Tooltip("Center: how far (tiles) from the exact centre the spawner may land.")]
+    [Min(0)] public float centerJitter = 0f;
+    [Tooltip("No closer than this to any spawner already placed this dungeon.")]
+    [Min(0)] public float minDistanceFromOtherSpawners = 5f;
+
     [Header("Spawner Economy (The Piñata)")]
     public int startingBudget = 300;
     private int currentBudget;
@@ -55,7 +92,12 @@ public class EnemySpawner : MonoBehaviour, IDamageable
     public float zoneOffset = 1.5f; 
     public LayerMask wallLayer;
     public bool requiresActivation = true;
+    [Tooltip("Woken by the player walking within PlayerSpawnerActivator's range. Off = only ActivateSpawner() wakes it (e.g. a TutorialHintZone on room entry).")]
+    public bool activateByProximity = true;
     private bool isActivated = false;
+
+    // Everything this spawner has released, for room-clear checks (TutorialHintZone).
+    private readonly List<GameObject> spawnedEnemies = new List<GameObject>();
 
     [Header("Audio")]
     public AudioSource audioSource;
@@ -82,7 +124,7 @@ public class EnemySpawner : MonoBehaviour, IDamageable
         GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
         if (playerObject != null) playerTransform = playerObject.transform;
 
-        if (explodeEffect == null) explodeEffect = FindConfiguredExplodeEffect();
+        if (explodeEffect == null) explodeEffect = BloodSplatterEffect.FindConfigured();
 
         if (!requiresActivation) ActivateSpawner();
     }
@@ -145,7 +187,7 @@ public class EnemySpawner : MonoBehaviour, IDamageable
                 if (chosenEnemy == cthulhuEye)
                     globalCthulhuLocations.Add(transform.position);
 
-                Instantiate(chosenEnemy.prefab, safePosition, Quaternion.identity);
+                spawnedEnemies.Add(Instantiate(chosenEnemy.prefab, safePosition, Quaternion.identity));
             }
 
             nextSpawnTime = Time.time + spawnInterval;
@@ -278,26 +320,12 @@ public class EnemySpawner : MonoBehaviour, IDamageable
     }
 
     /// <summary>
-    /// Fallback when explodeEffect isn't assigned: any BloodSplatterEffect in the scene that
-    /// actually has splatter prefabs, so an unconfigured one can't be picked by accident.
-    /// </summary>
-    private static BloodSplatterEffect FindConfiguredExplodeEffect()
-    {
-        foreach (BloodSplatterEffect effect in FindObjectsByType<BloodSplatterEffect>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-            if (HasSplatterPrefabs(effect)) return effect;
-        return null;
-    }
-
-    private static bool HasSplatterPrefabs(BloodSplatterEffect effect) =>
-        effect.bloodSplatterPrefabs != null && effect.bloodSplatterPrefabs.Length > 0;
-
-    /// <summary>
     /// Reuses BloodSplatterEffect to stand in for a spawner "explode" animation on death.
     /// </summary>
     private void SpawnExplodeEffect()
     {
         // The borrowed effect usually lives on an enemy, which may have died since Start.
-        if (explodeEffect == null || !HasSplatterPrefabs(explodeEffect)) explodeEffect = FindConfiguredExplodeEffect();
+        if (explodeEffect == null || !explodeEffect.HasSplatterPrefabs) explodeEffect = BloodSplatterEffect.FindConfigured();
 
         if (explodeEffect == null)
         {
@@ -374,14 +402,33 @@ public class EnemySpawner : MonoBehaviour, IDamageable
             Gizmos.color = new Color(1f, 0f, 1f, 0.2f);
             Gizmos.DrawWireSphere(transform.position, cthulhuExclusionRadius);
         }
+
+        // Dungeon placement: the floor square Center/Interior need clear of walls.
+        if (placement == SpawnerPlacement.Center || placement == SpawnerPlacement.Interior)
+        {
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawWireCube(transform.position, Vector3.one * (wallClearance * 2 + 1));
+        }
     }
     #endregion
 
     public bool IsDead() => isDead;
+
+    /// <summary>
+    /// Done for good: the spawner is dead (budget spent or destroyed) and every
+    /// enemy it released is dead too.
+    /// </summary>
+    public bool IsCleared()
+    {
+        if (!isDead) return false;
+        spawnedEnemies.RemoveAll(e => e == null || (e.TryGetComponent(out IDamageable d) && d.IsDead()));
+        return spawnedEnemies.Count == 0;
+    }
     public GameObject GetGameObject() => gameObject;
 
     #region Legacy API Bridge
     public bool RequiresActivation() { return requiresActivation; }
+    public bool ActivatesByProximity() { return activateByProximity; }
     public bool IsActivated() { return isActivated; }
 
     public int maxEnemies = 8;

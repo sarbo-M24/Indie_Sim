@@ -30,7 +30,7 @@ public class DamageIndicator : MonoBehaviour
     [SerializeField] private float flickerInterval = 0.06f; // Time between ON/OFF
 
 
-    // The Flash intensity setting (photosensitivity) blends the flash toward
+    // The Damage Flash Intensity setting (photosensitivity) blends the flash toward
     // the normal vignette: 0 = no visible flash, 1 = as authored.
     private float ScaledFlashIntensity => Mathf.Lerp(normalIntensity, flashIntensity, SettingsService.Current.flashIntensity);
     private Color ScaledDamageColor => Color.Lerp(normalColor, damageColor, SettingsService.Current.flashIntensity);

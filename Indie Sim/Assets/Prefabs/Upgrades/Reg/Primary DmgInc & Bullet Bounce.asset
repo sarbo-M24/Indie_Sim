@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Regular-1
   displayName: Primary Bullet Bounce
   description: Bullets Bounce
-  icon: {fileID: 1208238987, guid: 2319f4aff34a7214c95b3d501d2b023c, type: 3}
+  icon: {fileID: -3888813427572208302, guid: 36d925ae65208ad4aa4da6dfc2ca19e9, type: 3}
   brand: 1
   targetSlot: 0
   hasRarity: 1

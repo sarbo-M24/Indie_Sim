@@ -17,6 +17,8 @@ public class ConfirmDialog : MonoBehaviour
     [SerializeField] private Button noButton;
 
     private Action _onYes;
+    private TMP_Text _yesLabel;
+    private string _defaultYesText;
 
     public bool IsOpen => gameObject.activeSelf;
     public Selectable DefaultSelection => noButton;
@@ -37,9 +39,18 @@ public class ConfirmDialog : MonoBehaviour
                 button.gameObject.AddComponent<ButtonFocusScale>();
     }
 
-    public void Open(string message, Action onYes)
+    /// <summary>yesText relabels Yes for this opening only (one dialog can serve several questions).</summary>
+    public void Open(string message, Action onYes, string yesText = null)
     {
         messageText.text = message;
+        // Looked up here, not in Awake: the dialog starts hidden, so Awake
+        // hasn't run yet the first time it's opened.
+        if (_yesLabel == null)
+        {
+            _yesLabel = yesButton.GetComponentInChildren<TMP_Text>(true);
+            if (_yesLabel != null) _defaultYesText = _yesLabel.text;
+        }
+        if (_yesLabel != null) _yesLabel.text = yesText ?? _defaultYesText;
         _onYes = onYes;
         gameObject.SetActive(true);
 

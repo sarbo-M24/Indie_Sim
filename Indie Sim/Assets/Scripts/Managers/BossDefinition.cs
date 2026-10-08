@@ -10,6 +10,8 @@ public class BossDefinition : ScriptableObject
 {
     [Header("Boss")]
     public GameObject bossPrefab;
+    [Tooltip("Name shown on the boss health bar.")]
+    public string displayName = "Boss";
 
     [Header("Arena (optional)")]
     [Tooltip("Optional variant of BossArena's geometry for this boss. Leave empty to use the default arena.")]

@@ -6,6 +6,9 @@ public class BossSceneManager : MonoBehaviour
     [SerializeField] private BossDefinition bossDefinition;
     [SerializeField] private Transform bossSpawnPoint;
 
+    /// <summary>Raised once the boss is spawned (boss, display name). UI such as BossHealthBar listens.</summary>
+    public static event System.Action<BossEnemy, string> OnBossSpawned;
+
     private void Start()
     {
         Debug.Log($"[BossSceneManager] Start() in scene '{gameObject.scene.name}'. GameManager.Instance:{GameManager.Instance != null}, GameSession.Instance:{GameSession.Instance != null}");
@@ -27,7 +30,10 @@ public class BossSceneManager : MonoBehaviour
 
         BossEnemy bossEnemy = bossInstance.GetComponent<BossEnemy>();
         if (bossEnemy != null)
+        {
             bossEnemy.OnDeath += OnBossDefeated;
+            OnBossSpawned?.Invoke(bossEnemy, bossDefinition.displayName);
+        }
         else
             Debug.LogError("[BossSceneManager] Spawned boss has no BossEnemy component — OnBossDefeated will never fire!");
     }

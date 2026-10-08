@@ -6,8 +6,10 @@ using UnityEngine.InputSystem.DualShock;
 public enum ControllerFamily { None, Xbox, PlayStation }
 
 /// <summary>
-/// Single source of truth for "is a gamepad connected, and what kind". Lives
-/// under [Persistent] in Boot.unity; holds no run state.
+/// Single source of truth for "is a gamepad connected, and what kind", and
+/// whether pad prompts should show (IsActive: a pad is connected AND the
+/// player's last input came from it — a mouse nudge hides them even with a
+/// pad plugged in). Lives under [Persistent] in Boot.unity; holds no run state.
 ///
 /// The tracked pad is Gamepad.current: the Input System makes a pad current
 /// when it's added and whenever it sends real (non-noise) input, and on
@@ -34,7 +36,10 @@ public class ControllerPresence : MonoBehaviour
     public static ControllerFamily Family { get; private set; }
     public static bool IsConnected => Family != ControllerFamily.None;
 
-    /// <summary>Raised on connect, disconnect, or family change (a different pad became current).</summary>
+    /// <summary>Show gamepad prompts: a pad is connected and the last input came from a pad (InputManager.UsingGamepad).</summary>
+    public static bool IsActive => IsConnected && InputManager.UsingGamepad;
+
+    /// <summary>Raised on connect, disconnect, family change (a different pad became current), or a switch between pad and mouse/keyboard input.</summary>
     public static event Action<ControllerFamily> OnChanged;
 
     // Statics survive play-mode restarts when domain reload is disabled.
@@ -62,13 +67,17 @@ public class ControllerPresence : MonoBehaviour
     {
         if (_instance != this) return;
         InputSystem.onDeviceChange += OnDeviceChange;
+        InputManager.OnUsingGamepadChanged += OnInputMethodChanged;
         Refresh();
     }
 
     private void OnDisable()
     {
         InputSystem.onDeviceChange -= OnDeviceChange;
+        InputManager.OnUsingGamepadChanged -= OnInputMethodChanged;
     }
+
+    private static void OnInputMethodChanged(bool usingGamepad) => OnChanged?.Invoke(Family);
 
     private void OnDestroy()
     {

@@ -60,16 +60,19 @@ MonoBehaviour:
   flashDuration: 0.1
   damageColor: {r: 0.063546486, g: 0.5924529, b: 0, a: 1}
   bloodEffect: {fileID: 3527862313629942301}
-  coinPrefab: {fileID: 5576711845111610058, guid: 6507a99d4a98a9e4a91ab2d3fd43d539, type: 3}
-  minCoins: 1
-  maxCoins: 3
-  coinDropForce: 3
-  coinSpreadRadius: 0.5
+  coinDrop:
+    coinPrefab: {fileID: 5576711845111610058, guid: 6507a99d4a98a9e4a91ab2d3fd43d539, type: 3}
+    dropChance: 0.3
+    minCoins: 1
+    maxCoins: 2
+    coinDropForce: 3
+    coinSpreadRadius: 0.5
   attackDamage: 25
   attackCooldown: 1.5
   audioSource: {fileID: 0}
   damageSound: {fileID: 0}
   deathSound: {fileID: 0}
+  damageSprite: {fileID: 0}
 --- !u!114 &3570662312240958259
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -83,8 +86,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   speed: 3
-  normalDrag: 1
-  knockbackDrag: 25
+  rotationSpeed: 5
+  attackTriggerDistance: 3
+  windupDistance: 0.5
+  lungeForce: 15
+  attackCooldown: 1.5
+  lungeDrag: 5
+  spriteTransform: {fileID: 0}
+  squashAmount: 0.7
+  separationRadius: 1.2
+  separationForce: 3
 --- !u!50 &257384993561902794
 Rigidbody2D:
   serializedVersion: 5
@@ -164,6 +175,8 @@ MonoBehaviour:
   leaveCorpse: 1
   corpseLifetime: 5
   corpseAlpha: 0.8
+  corpseSortingLayer: Floor
+  corpseSortingOrder: 2
   deathEffect: {fileID: 0}
   deathEffectDuration: 2
   audioSource: {fileID: 6872814849207381837}
@@ -244,6 +257,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BloodSplatterEffect
   bloodSplatterPrefabs:
   - {fileID: 1414684362247989671, guid: 45e8604ccadaee34f987ecee8d2ea622, type: 3}
+  bloodLifetime: 2
+  bloodChunkSprite: {fileID: 0}
+  chunkCount: 4
+  chunkLifetime: 0.5
+  chunkSpeed: 5
+  chunkSpreadAngle: 45
+  chunkSortingLayer: Default
+  chunkSortingOrder: 0
 --- !u!82 &6872814849207381837
 AudioSource:
   m_ObjectHideFlags: 0

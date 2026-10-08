@@ -25,7 +25,8 @@ public class GameSettings
     public bool psychedelicMode = false;
     public float screenShake = 1f;      // 0–1, scales every camera shake / recoil kick
     public float cameraLead = 1f;       // 0–1, scales how far the camera leads toward the aim
-    public float flashIntensity = 1f;   // 0–1, damage vignette flash (photosensitivity)
+    public float flashIntensity = 1f;   // 0–1, damage vignette flash (photosensitivity) — "Damage Flash Intensity"
+    public float psychedelicIntensity = 1f; // 0–1, how far Psychedelic mode's colours replace normal blood
 
     // ── Controls ──
     public string bindingOverridesJson = "";

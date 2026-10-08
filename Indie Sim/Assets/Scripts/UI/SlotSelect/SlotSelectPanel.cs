@@ -15,7 +15,7 @@ using UnityEngine.UI;
 ///
 /// Opened by MainMenu with Open(onClosed); Back or B/Esc closes it (or the
 /// open dialog first). Gamepad: Left/Right between tiles, Down to Delete and
-/// Back.
+/// Back; X / Square deletes the focused slot (with the same confirm).
 /// </summary>
 public class SlotSelectPanel : MonoBehaviour
 {
@@ -69,7 +69,29 @@ public class SlotSelectPanel : MonoBehaviour
     {
         if (namePrompt.IsOpen) UIFocus.EnsureSelection(namePrompt.transform, namePrompt.DefaultSelection);
         else if (confirmDialog.IsOpen) UIFocus.EnsureSelection(confirmDialog.transform, confirmDialog.DefaultSelection);
-        else UIFocus.EnsureSelection(transform, tiles[_focusIndex].SelectButton.interactable ? tiles[_focusIndex].SelectButton : null);
+        else
+        {
+            UIFocus.EnsureSelection(transform, tiles[_focusIndex].SelectButton.interactable ? tiles[_focusIndex].SelectButton : null);
+
+            // X / Square (UI/DeleteSlot): Delete on the focused tile, same confirm as its button.
+            if (InputManager.Controls.UI.DeleteSlot.WasPressedThisFrame())
+            {
+                int focused = FocusedTile();
+                if (focused >= 0 && tiles[focused].DeleteButton.gameObject.activeSelf) OnDeletePicked(focused);
+            }
+        }
+    }
+
+    /// <summary>The tile whose card or Delete button has gamepad focus, or -1.</summary>
+    private int FocusedTile()
+    {
+        GameObject selected = UnityEngine.EventSystems.EventSystem.current != null
+            ? UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject : null;
+        if (selected == null) return -1;
+
+        for (int i = 0; i < tiles.Length; i++)
+            if (selected == tiles[i].SelectButton.gameObject || selected == tiles[i].DeleteButton.gameObject) return i;
+        return -1;
     }
 
     private void Refresh()

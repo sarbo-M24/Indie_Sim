@@ -10,8 +10,8 @@
 - **`PlayerControls.inputactions`:**
   - Control schemes `Keyboard&Mouse` and `Gamepad`.
   - Player map adds `Aim` (right stick, `StickDeadzone(min=0.2)`) and `Reload` (R / X).
-  - Gamepad bindings on existing actions: Move = left stick (`StickDeadzone(min=0.15)`), Fire = RT, **Dash = LT** (not "LT or RB"), Stomp = A, SwitchWeapon = Y.
-  - **Weapon switching is one action (2026-09-28):** `SwitchWeaponScroll` was merged into `SwitchWeapon`, which always goes to the next weapon. Defaults are **Mouse Wheel** (`<Mouse>/scroll/y`, either direction) and **Y**. Tab and LB/RB no longer switch weapons. `WeaponInventory.SwitchToPreviousWeapon` and `scrollThreshold` were removed. The HUD key hint `Controls (2)` now reads "Scroll".
+  - Gamepad bindings on existing actions: Move = left stick (`StickDeadzone(min=0.15)`), Fire = RT, **Dash = LT** (not "LT or RB"), Stomp = LB, SwitchWeapon = RB (changed 2026-10-07 from A / Y).
+  - **Weapon switching is one action (2026-09-28):** `SwitchWeaponScroll` was merged into `SwitchWeapon`, which always goes to the next weapon. Defaults are **Mouse Wheel** (`<Mouse>/scroll/y`, either direction) and **RB** (was Y until 2026-10-07). Tab no longer switches weapons. `WeaponInventory.SwitchToPreviousWeapon` and `scrollThreshold` were removed. The HUD key hint `Controls (2)` now reads "Scroll".
   - New **UI map**: Navigate, Submit, Cancel, Point, Click, RightClick, MiddleClick, ScrollWheel and **Pause (Esc / Start)**.
   - The "empty-path Stomp binding" from the plan was already fine (Space).
 - **`Scripts/Input/InputManager.cs`:** a **static class**, not the planned `InputManager.Instance` MonoBehaviour under `[Persistent]`, so it needs no Boot setup.
@@ -140,7 +140,7 @@
     - Overrides are saved to `bindingOverridesJson`, and `InputManager` loads them at startup.
 - **`Prefabs/UI/Controls Panel.prefab`:** "KEYBOARD & MOUSE" and "GAMEPAD" tabs, each a scroll list with a slim scrollbar. Placeholder art.
   - **Keyboard & Mouse:** Move Up/Down/Left/Right, Fire, Dash, Stomp, Reload and Switch Weapon (Mouse Wheel).
-  - **Gamepad:** Fire, Dash, Stomp, Reload and Switch Weapon (Y).
+  - **Gamepad:** Fire, Dash, Stomp, Reload and Switch Weapon (RB).
   - Every row can be rebound; there are no fixed or greyed-out rows. Move and Aim on the sticks, and Pause, aren't listed.
   - **Swap Sticks (Move / Aim)** toggle at the bottom of the Gamepad tab (2026-09-28).
     - The setting `GameSettings.swapSticks` is shown with a `ToggleRow` (`BoolSetting.SwapSticks`).

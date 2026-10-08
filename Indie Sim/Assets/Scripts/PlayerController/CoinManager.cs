@@ -19,10 +19,13 @@ public class CoinManager : MonoBehaviour
 {
     public static CoinManager Instance { get; private set; }
 
-    [Header("Starting Balance")]
+    // Fallback only — a new run's coins come from GameSession (Boot), which
+    // seeds CurrentRun. These apply when GameSession is missing (Play
+    // pressed directly on this scene) or an old save has no coin data.
+    [Header("Fallback starting balance (real value: GameSession in Boot)")]
     [SerializeField] private int startingCoins = 0;
 
-    [Header("Coin Cap")]
+    [Header("Fallback coin cap (real value: GameSession in Boot)")]
     [SerializeField] private int startingMaxCoins = 200;
 
     // ─────────────────────────────────────────────────────────────────
@@ -64,10 +67,10 @@ public class CoinManager : MonoBehaviour
     // testing with no Boot bootstrap).
     private void InitialiseRun()
     {
-        // GameSession.StartNewRun() constructs a fresh RunStats() with every
-        // field zeroed, so MaxCoins == 0 is the signal that this is a genuinely
-        // new run (not a carry-over from RoguelikeMode -> BossArena) and the
-        // Inspector starting values should be used instead of RunStats.
+        // GameSession.StartNewRun() seeds a new run's coins and cap, so the run
+        // is always the source. MaxCoins == 0 means no coin data at all (no
+        // GameSession, or an old save without it) — only then do the
+        // Inspector fallback values apply.
         RunStats run = GameSession.Instance != null ? GameSession.Instance.CurrentRun : null;
         if (run != null && run.MaxCoins > 0)
         {

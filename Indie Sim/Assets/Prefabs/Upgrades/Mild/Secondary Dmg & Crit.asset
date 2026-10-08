@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Mild-2
   displayName: Secondary Up
   description: Inc Dmg and Crit chance
-  icon: {fileID: 1208238987, guid: 2319f4aff34a7214c95b3d501d2b023c, type: 3}
+  icon: {fileID: 7747169739302169731, guid: d0ecbd2c29aa7b44fa52a5aabf8f4fa8, type: 3}
   brand: 0
   targetSlot: 1
   hasRarity: 1

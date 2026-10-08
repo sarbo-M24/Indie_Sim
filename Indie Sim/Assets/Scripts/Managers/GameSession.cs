@@ -17,6 +17,12 @@ public class GameSession : MonoBehaviour
     /// <summary>Slot/profile save files (save-system-spec.md). Built in Awake by SaveBootstrap.</summary>
     public SaveService Saves { get; private set; }
 
+    [Header("New run")]
+    [Tooltip("Coins every new run starts with (coins are also health). The one source for this — the slot is written with it straight away, so slot select shows it for a brand-new run.")]
+    [SerializeField, Min(0)] private int startingCoins = 50;
+    [Tooltip("Coin cap every new run starts with.")]
+    [SerializeField, Min(1)] private int startingMaxCoins = 200;
+
     // Guards EndRun() against double-invocation (D2: death and boss-defeat
     // both route into it). Cleared by StartNewRun().
     private bool _runEnding;
@@ -30,6 +36,7 @@ public class GameSession : MonoBehaviour
         }
 
         Instance = this;
+        CurrentRun = NewRunStats();
         Saves = SaveBootstrap.Create(this);
         LegacySaveImport.LoadProfile(Saves, Persistent);
     }
@@ -47,14 +54,23 @@ public class GameSession : MonoBehaviour
     /// scene-local — resetting a fresh RunStats here is sufficient because
     /// each of them reads its starting state from CurrentRun in its own
     /// Awake()/Start() when the next scene load recreates them.
+    /// countAsRun false = a do-over that shouldn't bump the lifetime run
+    /// count (a tutorial death restarting the tutorial).
     /// </summary>
-    public void StartNewRun()
+    public void StartNewRun(bool countAsRun = true)
     {
-        Debug.Log("[GameSession] StartNewRun() called.");
-        CurrentRun = new RunStats();
-        Persistent.TotalRuns++;
+        Debug.Log($"[GameSession] StartNewRun(countAsRun:{countAsRun}) called.");
+        CurrentRun = NewRunStats();
+        if (countAsRun) Persistent.TotalRuns++;
         _runEnding = false;
     }
+
+    /// <summary>A fresh run, seeded with the starting coins and cap.</summary>
+    private RunStats NewRunStats() => new RunStats
+    {
+        CurrentCoins = startingCoins,
+        MaxCoins = startingMaxCoins
+    };
 
     /// <summary>
     /// Slot select picked an Empty slot (newSlotName = what the player typed)

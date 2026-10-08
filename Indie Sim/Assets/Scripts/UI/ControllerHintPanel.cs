@@ -6,7 +6,8 @@ using UnityEngine.UI;
 /// Row of gamepad button hints under a menu (Settings panel, and any other
 /// menu driven by a controller): an icon plus a label per hint. Place it
 /// inside the menu so it only exists while the menu is open; it then shows
-/// `content` only while a controller is connected, with that family's sprites
+/// `content` only while the player is using a controller (ControllerPresence.IsActive:
+/// last input from a connected pad, not just a pad plugged in), with that family's sprites
 /// from `glyphs`. Labels are plain text set per menu in the Inspector. A hint
 /// whose sprite isn't assigned is hidden whole (icon and label). Event-driven
 /// via ControllerPresence.OnChanged — no polling. Keep this object active and
@@ -20,13 +21,18 @@ public class ControllerHintPanel : MonoBehaviour
         [Tooltip("The hint's group (icon + label). Hidden when the icon has no sprite.")]
         public GameObject root;
         public Image icon;
+        [Tooltip("Off: the glyph set's hint slot with this hint's index. On: the single button below (e.g. West = X / Square).")]
+        public bool useButton;
+        public GamepadGlyph button;
+        [Tooltip("Never shown in this menu (e.g. no Up/Down or Back on a one-button panel).")]
+        public bool hide;
     }
 
     [Tooltip("Sprites to show. Each menu can use its own set.")]
     [SerializeField] private ControllerGlyphSet glyphs;
     [Tooltip("Child holding the Horizontal Layout Group and the hints. Hidden with no controller.")]
     [SerializeField] private GameObject content;
-    [Tooltip("Four hints, left to right; hint N uses the glyph set's slot N.")]
+    [Tooltip("Hints, left to right. Hint N uses the glyph set's slot N unless it picks a single button.")]
     [SerializeField] private Hint[] hints = new Hint[ControllerGlyphSet.HintSlotCount];
 
     private bool _warnedNoGlyphs;
@@ -46,7 +52,7 @@ public class ControllerHintPanel : MonoBehaviour
 
     private void Refresh()
     {
-        bool show = ControllerPresence.IsConnected;
+        bool show = ControllerPresence.IsActive;
         if (content != null) content.SetActive(show);
         if (!show || hints == null) return;
 
@@ -61,7 +67,15 @@ public class ControllerHintPanel : MonoBehaviour
             Hint hint = hints[i];
             if (hint == null || hint.icon == null) continue;
 
-            Sprite sprite = glyphs != null ? glyphs.GetHint(ControllerPresence.Family, i) : null;
+            if (hint.hide)
+            {
+                (hint.root != null ? hint.root : hint.icon.gameObject).SetActive(false);
+                continue;
+            }
+
+            Sprite sprite = glyphs == null ? null
+                : hint.useButton ? glyphs.GetButton(ControllerPresence.Family, hint.button)
+                : glyphs.GetHint(ControllerPresence.Family, i);
             hint.icon.sprite = sprite;
 
             GameObject root = hint.root != null ? hint.root : hint.icon.gameObject;

@@ -97,8 +97,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bce2eb3dd0b60e04e948384552544db3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DebugUpgradeInjector
-  grantOnStart:
-  - data: {fileID: 0}
-    tier: 0
-    rarity: 0
-    startBurning: 0
+  grantOnStart: []

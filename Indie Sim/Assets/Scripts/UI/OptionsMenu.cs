@@ -7,8 +7,16 @@ public class OptionsMenu : MonoBehaviour
     [SerializeField] private GameObject pauseOverlay; // Optional dark overlay when paused
     [SerializeField] private SettingsPanel settingsPanel; // Opened by the pause menu's Settings button
     [SerializeField] private ControlsPanel controlsPanel; // Opened by the pause menu's Controls button
-    [Tooltip("Shown by Exit to Main Menu: progress since the last checkpoint is lost. Built by Tools/Save/Build Save & Exit + Quit Warning.")]
+    [Tooltip("Shown by Exit to Main Menu: progress since the last checkpoint is lost. Built by Tools/Save/Build Pause Menu Buttons.")]
     [SerializeField] private ConfirmDialog quitWarning;
+
+    [Header("Run Buttons (Tools/Save/Build Pause Menu Buttons)")]
+    [Tooltip("Exit to Main Menu — hidden while the store is open, where Save & Exit replaces it.")]
+    [SerializeField] private UnityEngine.UI.Button exitButton;
+    [Tooltip("Shown only while the store is open: saves the run (resumes in the store) and returns to the main menu.")]
+    [SerializeField] private UnityEngine.UI.Button saveAndExitButton;
+    [Tooltip("Ends the run as a death and starts a new one in the same slot, after a confirm.")]
+    [SerializeField] private UnityEngine.UI.Button giveUpButton;
 
     [Header("Scene Management")]
     [SerializeField] private string mainMenuSceneName = "MainMenu"; // Name of your main menu scene
@@ -54,6 +62,9 @@ public class OptionsMenu : MonoBehaviour
         if (controlsPanel != null) controlsPanel.gameObject.SetActive(false);
         if (quitWarning != null) quitWarning.Close();
 
+        if (saveAndExitButton != null) saveAndExitButton.onClick.AddListener(SaveAndExitToMainMenu);
+        if (giveUpButton != null) giveUpButton.onClick.AddListener(GiveUp);
+
         // Update UI elements
         UpdateSoundButtonDisplay();
 
@@ -86,6 +97,11 @@ public class OptionsMenu : MonoBehaviour
 
         isGamePaused = true;
         PauseController.SetFrozen(this, true);
+
+        // Before the panel shows, so its GamepadMenuPanel links only the visible buttons.
+        bool inStore = IsStoreOpen();
+        if (exitButton != null) exitButton.gameObject.SetActive(!inStore);
+        if (saveAndExitButton != null) saveAndExitButton.gameObject.SetActive(inStore);
 
         // Show options menu
         if (optionsPanel != null)
@@ -190,6 +206,43 @@ public class OptionsMenu : MonoBehaviour
 
         quitWarning.Open("Quit to the main menu?\nProgress since your last checkpoint will be lost.", ConfirmedExitToMainMenu);
     }
+
+    /// <summary>
+    /// Store only (the button is hidden elsewhere): a full save that resumes
+    /// in the store, so nothing is lost and there's no warning.
+    /// </summary>
+    public void SaveAndExitToMainMenu()
+    {
+        if (!IsStoreOpen()) return;
+
+        OnExitToMainMenu?.Invoke();
+        ShopUIController.Instance.CloseForSceneExit();
+        GameManager.Instance.SaveAndExitToMenu();
+    }
+
+    /// <summary>
+    /// Give Up, after a confirm: the run ends like a death and a new one
+    /// starts in the same slot straight away (GameManager.GiveUpRun).
+    /// </summary>
+    public void GiveUp()
+    {
+        if (quitWarning == null)
+        {
+            ConfirmedGiveUp();
+            return;
+        }
+
+        quitWarning.Open("Give up this run?\nIt counts as a death and a new run starts right away.", ConfirmedGiveUp, "GIVE UP");
+    }
+
+    private void ConfirmedGiveUp()
+    {
+        if (IsStoreOpen()) ShopUIController.Instance.CloseForSceneExit();
+        PauseController.ResetAll();
+        GameManager.Instance.GiveUpRun();
+    }
+
+    private static bool IsStoreOpen() => ShopUIController.Instance != null && ShopUIController.Instance.IsOpen;
 
     private void ConfirmedExitToMainMenu()
     {

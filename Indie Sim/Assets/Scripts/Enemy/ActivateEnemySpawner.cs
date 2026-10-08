@@ -44,6 +44,7 @@ public class PlayerSpawnerActivator : MonoBehaviour
                 // Activate if not already activated and requires activation
                 if (!activatedSpawners.Contains(spawner) &&
                     spawner.RequiresActivation() &&
+                    spawner.ActivatesByProximity() &&
                     !spawner.IsActivated() &&
                     !spawner.IsDead())
                 {

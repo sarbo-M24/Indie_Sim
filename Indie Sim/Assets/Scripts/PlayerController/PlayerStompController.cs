@@ -203,10 +203,18 @@ public class PlayerStompController : MonoBehaviour
             Vector2 toTarget = (Vector2)bulletCol.transform.position - playerPos;
             RaycastHit2D wallCheck = Physics2D.Raycast(playerPos, toTarget.normalized, toTarget.magnitude, stompWallLayer);
 
-            if (wallCheck.collider == null)
-            {
+            if (wallCheck.collider != null) continue;
+
+            // Never delete damageable things here: with Enemies in this mask the
+            // stomp used to Destroy() enemies and spawners outright, skipping their
+            // Die() (blood, coins, kill count, spawner husk). They're handled by
+            // DamageAndPushEnemies through IDamageable like bullets do.
+            if (bulletCol.GetComponent<IDamageable>() != null) continue;
+
+            if (bulletCol.TryGetComponent(out Bullet bullet))
+                bullet.Despawn(); // back to the pool rather than destroying pooled bullets
+            else
                 Destroy(bulletCol.gameObject);
-            }
         }
     }
 

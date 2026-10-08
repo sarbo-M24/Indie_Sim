@@ -133,6 +133,9 @@ public class Bullet : MonoBehaviour
         return layerMask == (layerMask | (1 << layer));
     }
 
+    /// <summary>Removes the bullet the same way an impact does (back to its pool if pooled).</summary>
+    public void Despawn() => ReturnToPool();
+
     private void ReturnToPool()
     {
         if (pool != null)

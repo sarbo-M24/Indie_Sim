@@ -204,7 +204,7 @@
                 {
                     "name": "",
                     "id": "03636600-41c1-42ef-84f7-98d419686d21",
-                    "path": "<Gamepad>/buttonNorth",
+                    "path": "<Gamepad>/rightShoulder",
                     "interactions": "",
                     "processors": "",
                     "groups": "Gamepad",
@@ -248,7 +248,7 @@
                 {
                     "name": "",
                     "id": "513a80a3-f802-4534-a4b5-ab799b93ae01",
-                    "path": "<Gamepad>/buttonSouth",
+                    "path": "<Gamepad>/leftShoulder",
                     "interactions": "",
                     "processors": "",
                     "groups": "Gamepad",
@@ -369,6 +369,15 @@
                     "name": "ShopContinue",
                     "type": "Button",
                     "id": "bd27f91d-3b80-425d-be85-519ced512dd6",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "DeleteSlot",
+                    "type": "Button",
+                    "id": "83470ff6-7b36-466b-9dd0-d9985dd8035d",
                     "expectedControlType": "Button",
                     "processors": "",
                     "interactions": "",
@@ -582,6 +591,17 @@
                     "processors": "",
                     "groups": "Gamepad",
                     "action": "ShopContinue",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "952a8f87-2be7-4c9e-9fbe-6a900a5e7194",
+                    "path": "<Gamepad>/buttonWest",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Gamepad",
+                    "action": "DeleteSlot",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

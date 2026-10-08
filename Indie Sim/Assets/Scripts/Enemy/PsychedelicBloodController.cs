@@ -4,17 +4,17 @@ using UnityEngine;
 /// Central controller that drives a smooth, looping "psychedelic" colour shift
 /// across both blood systems:
 ///
-///   • BloodSplatterEffect  — the particle burst + chunks enemies emit on death.
-///     Only affects splatters spawned AFTER the colour changes (each lives ~2s).
+///   • BloodSplatterEffect  — the particle burst + chunks enemies emit on death,
+///     via the shared static bloodTintColor. Only affects splatters spawned
+///     AFTER the colour changes (each lives ~2s).
 ///
-///   • ChunkedGorePainter   — the blood painted on the ground.
-///     - Future splats     : recoloured via SetBloodColor().
-///     - Already-painted    : recoloured live via SetDisplayTint() (the
-///       BloodDisplay shader's _Tint), so the whole floor pulses through the
-///       palette, not just new pools.
+///   • ChunkedGorePainter   — the blood painted on the ground. Its canvas is
+///     painted neutral and coloured entirely by SetDisplayTint() (the
+///     BloodDisplay shader's _Tint), so old and new pools pulse together and
+///     turning the mode off returns everything to the normal blood colour.
 ///
-/// Put this on a single manager GameObject. Leave the references empty to
-/// auto-find the scene instances.
+/// Put this on a single manager GameObject. Leave the reference empty to
+/// auto-find the scene's painter.
 /// </summary>
 public class PsychedelicBloodController : MonoBehaviour
 {
@@ -23,11 +23,6 @@ public class PsychedelicBloodController : MonoBehaviour
     [SerializeField] private bool active = false;
     [SerializeField] private bool affectKillSplatter = true;
     [SerializeField] private bool affectGroundGore = true;
-
-    [Tooltip("Also hue-shift blood that's already on the ground (not just new pools). " +
-             "Uses the BloodDisplay shader _Tint. When on, new ground splats are " +
-             "painted near-white so the tint fully controls the colour.")]
-    [SerializeField] private bool tintExistingGroundGore = true;
 
     [Tooltip("Render the ground blood through the water material (ChunkedGorePainter.waterMaterialTemplate) " +
              "instead of the flat blood look. Needs the water material assigned on the painter.")]
@@ -65,15 +60,17 @@ public class PsychedelicBloodController : MonoBehaviour
     [SerializeField] private KeyCode toggleKey = KeyCode.P;
 
     [Header("References (auto-found if empty)")]
-    [SerializeField] private BloodSplatterEffect killSplatter;
     [SerializeField] private ChunkedGorePainter groundGore;
 
     private float phase;
     private bool wasActive;
 
+    // Psychedelic Blood Intensity setting: 0 = normal blood, 1 = full palette.
+    private float settingBlend = 1f;
+    private static readonly Color FallbackBloodColor = new Color(0.6f, 0.05f, 0.05f, 1f);
+
     private void Awake()
     {
-        if (killSplatter == null) killSplatter = FindFirstObjectByType<BloodSplatterEffect>();
         if (groundGore == null) groundGore = FindFirstObjectByType<ChunkedGorePainter>();
     }
 
@@ -91,13 +88,18 @@ public class PsychedelicBloodController : MonoBehaviour
         RestoreDefaults();
     }
 
-    private void ApplySetting(GameSettings settings) => active = settings.psychedelicMode;
+    private void ApplySetting(GameSettings settings)
+    {
+        active = settings.psychedelicMode;
+        settingBlend = Mathf.Clamp01(settings.psychedelicIntensity);
+    }
 
     private void Update()
     {
         HandleToggleKey();
 
-        if (!active)
+        // Slider at 0 = exactly the normal blood, same as the mode being off.
+        if (!active || settingBlend <= 0f)
         {
             if (wasActive) RestoreDefaults();
             wasActive = false;
@@ -105,27 +107,24 @@ public class PsychedelicBloodController : MonoBehaviour
         }
         wasActive = true;
 
-        Color color = EvaluatePalette() * intensity;
+        // Blend from the normal blood red (not white — the splatter tint
+        // replaces the particles' colour outright) toward the palette.
+        Color normal = groundGore != null ? groundGore.bloodColor : FallbackBloodColor;
+        Color color = Color.Lerp(normal, EvaluatePalette() * intensity, settingBlend);
         color.a = 1f;
 
-        if (affectKillSplatter && killSplatter != null)
-            killSplatter.bloodTintColor = color;
+        if (affectKillSplatter)
+            BloodSplatterEffect.bloodTintColor = color;
 
         if (affectGroundGore && groundGore != null)
         {
             groundGore.SetWaterMode(waterGroundGore);
 
-            if (tintExistingGroundGore)
-            {
-                groundGore.SetBloodColor(Color.white * Mathf.Max(1f, intensity)); // paint neutral so _Tint drives hue
-                Color t = color;
-                t.a = groundTintAlpha;
-                groundGore.SetDisplayTint(t);
-            }
-            else
-            {
-                groundGore.SetBloodColor(color); // future pools only
-            }
+            // The canvas is always painted neutral, so this recolours old and
+            // new pools alike.
+            Color t = color;
+            t.a = groundTintAlpha;
+            groundGore.SetDisplayTint(t);
         }
     }
 
@@ -178,14 +177,12 @@ public class PsychedelicBloodController : MonoBehaviour
 
     private void RestoreDefaults()
     {
-        if (killSplatter != null)
-            killSplatter.bloodTintColor = Color.white;
+        BloodSplatterEffect.bloodTintColor = Color.white;
 
         if (groundGore != null)
         {
             groundGore.SetWaterMode(false);
-            groundGore.SetDisplayTint(Color.white);
-            groundGore.SetBloodColor(new Color(0.6f, 0.05f, 0.05f, 1f)); // original dark red
+            groundGore.ResetDisplayTint(); // back to the painter's normal blood colour
         }
     }
 

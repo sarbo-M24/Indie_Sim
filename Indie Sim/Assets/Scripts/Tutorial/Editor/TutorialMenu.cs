@@ -1,0 +1,79 @@
+using System.IO;
+using Newtonsoft.Json.Linq;
+using UnityEditor;
+using UnityEngine;
+
+/// <summary>
+/// Authoring helpers for Tutorial.unity: drop hint zones at the Scene
+/// view's centre (under a "Tutorial Zones" parent), and clear the profile's
+/// tutorial-completed flag so the next new run plays the tutorial again.
+/// </summary>
+public static class TutorialMenu
+{
+    private const string Root = "Tools/Tutorial/";
+    private const string ZonesParent = "Tutorial Zones";
+
+    [MenuItem(Root + "Add Hint Zone", priority = 0)]
+    private static void AddHintZone()
+    {
+        GameObject parent = GameObject.Find(ZonesParent);
+        int number = parent != null ? parent.GetComponentsInChildren<TutorialHintZone>(true).Length + 1 : 1;
+        CreateZone<TutorialHintZone>($"Room {number} Hint", new Vector2(10f, 8f));
+    }
+
+    private static void CreateZone<T>(string name, Vector2 size) where T : Component
+    {
+        GameObject parent = GameObject.Find(ZonesParent);
+        if (parent == null)
+        {
+            parent = new GameObject(ZonesParent);
+            Undo.RegisterCreatedObjectUndo(parent, "Create Tutorial Zones");
+        }
+
+        GameObject zone = new GameObject(name);
+        Undo.RegisterCreatedObjectUndo(zone, "Add " + name);
+        zone.transform.SetParent(parent.transform, false);
+
+        SceneView view = SceneView.lastActiveSceneView;
+        Vector3 pivot = view != null ? view.pivot : Vector3.zero;
+        zone.transform.position = new Vector3(Mathf.Round(pivot.x), Mathf.Round(pivot.y), 0f);
+
+        BoxCollider2D box = zone.AddComponent<BoxCollider2D>();
+        box.isTrigger = true;
+        box.size = size;
+        zone.AddComponent<T>();
+
+        Selection.activeGameObject = zone;
+        EditorGUIUtility.PingObject(zone);
+    }
+
+    [MenuItem(Root + "Replay Tutorial On Next New Run", priority = 20)]
+    private static void ResetCompletedFlag()
+    {
+        if (Application.isPlaying && GameSession.Instance != null)
+        {
+            GameSession.Instance.Persistent.TutorialCompleted = false;
+            GameSession.Instance.Save();
+            Debug.Log("[TutorialMenu] Tutorial flag cleared (live session + profile.json).");
+            return;
+        }
+
+        string path = Path.Combine(SaveService.DefaultFolder, "profile.json");
+        if (!File.Exists(path))
+        {
+            Debug.Log("[TutorialMenu] No profile.json yet — the tutorial will play on the next new run.");
+            return;
+        }
+
+        JObject profile = JObject.Parse(File.ReadAllText(path));
+        if (profile["Sections"] is JObject sections && sections.Remove("global.tutorial"))
+        {
+            File.WriteAllText(path, profile.ToString());
+            Debug.Log("[TutorialMenu] Tutorial flag cleared in profile.json.");
+        }
+        else
+        {
+            Debug.Log("[TutorialMenu] profile.json has no tutorial flag — the tutorial will play on the next new run.");
+        }
+    }
+}

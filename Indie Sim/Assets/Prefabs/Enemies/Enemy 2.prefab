@@ -61,11 +61,13 @@ MonoBehaviour:
   flashDuration: 0.1
   damageColor: {r: 0.063546486, g: 0.5924529, b: 0, a: 1}
   bloodEffect: {fileID: 3527862313629942301}
-  coinPrefab: {fileID: 5576711845111610058, guid: 6507a99d4a98a9e4a91ab2d3fd43d539, type: 3}
-  minCoins: 1
-  maxCoins: 3
-  coinDropForce: 3
-  coinSpreadRadius: 0.5
+  coinDrop:
+    coinPrefab: {fileID: 5576711845111610058, guid: 6507a99d4a98a9e4a91ab2d3fd43d539, type: 3}
+    dropChance: 0.3
+    minCoins: 1
+    maxCoins: 2
+    coinDropForce: 3
+    coinSpreadRadius: 0.5
   attackDamage: 25
   attackCooldown: 1.5
   audioSource: {fileID: 0}
@@ -264,7 +266,6 @@ MonoBehaviour:
   chunkSpreadAngle: 45
   chunkSortingLayer: Default
   chunkSortingOrder: 0
-  bloodTintColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!82 &6872814849207381837
 AudioSource:
   m_ObjectHideFlags: 0

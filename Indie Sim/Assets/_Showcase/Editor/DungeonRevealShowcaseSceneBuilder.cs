@@ -100,11 +100,11 @@ public static class DungeonRevealShowcaseSceneBuilder
             so.FindProperty("gorePainter").objectReferenceValue = null;
             so.FindProperty("teleporterPrefab").objectReferenceValue = null;
             so.FindProperty("enemySpawnerPrefab").objectReferenceValue = null;
+            so.FindProperty("spawnerPrefabs").arraySize = 0;
             so.FindProperty("keyPrefab").objectReferenceValue = null;
             so.FindProperty("relicPrefabs").arraySize = 0;
             so.FindProperty("shouldKeyBeSpawned").boolValue = false;
             so.FindProperty("generateOnStart").boolValue = false;
-            so.FindProperty("spawnEnemySpawnersInMainRooms").boolValue = false;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             // --- Global 2D light(s) so lit tile materials look like gameplay ---

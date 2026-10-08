@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Electric-4
   displayName: Chain Dash
   description: Chain Dash
-  icon: {fileID: 1208238987, guid: 2319f4aff34a7214c95b3d501d2b023c, type: 3}
+  icon: {fileID: -8189351254253354183, guid: 1dfc403983010464d88fbe356cc3b48a, type: 3}
   brand: 6
   targetSlot: 3
   hasRarity: 0

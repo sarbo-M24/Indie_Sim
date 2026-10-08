@@ -28,6 +28,14 @@ public class TutorialManager : MonoBehaviour
 
     void Start()
     {
+        // Resumed into the store: the shop opens straight away and the popup
+        // would only freeze time and grab pad focus behind it.
+        if (GameSession.Instance != null && GameSession.Instance.CurrentRun.ResumePoint == RunResumePoint.Store)
+        {
+            if (instructionPanel != null) instructionPanel.SetActive(false);
+            return;
+        }
+
         // Start the tutorial when the scene loads
         StartTutorial();
     }

@@ -225,10 +225,40 @@ public abstract class TabbedMenuPanel : MonoBehaviour
         if (backButton != null && backButton.isActiveAndEnabled) _navList.Add(backButton);
 
         _top = UIFocus.LinkInOrder(_navList);
+        LinkFooterRow();
 
         if (_selectTopAfterRelink && _top != null && InputManager.UsingGamepad && EventSystem.current != null)
             EventSystem.current.SetSelectedGameObject(_top.gameObject);
         _selectTopAfterRelink = false;
+    }
+
+    // Reset and Back sit side by side, so LinkInOrder's vertical chain put
+    // Back "below" Reset — Right from Reset went nowhere. Make them one row:
+    // Left/Right between them, Up → last row, Down → wraps to the top row.
+    // The last row's Down already lands on Reset (the next item in the chain).
+    private void LinkFooterRow()
+    {
+        bool hasReset = resetButton != null && resetButton.isActiveAndEnabled;
+        bool hasBack = backButton != null && backButton.isActiveAndEnabled;
+        if (!hasReset || !hasBack) return;
+
+        Selectable firstRow = _rows.Count > 0 ? _rows[0] : null;
+        Selectable lastRow = _rows.Count > 0 ? _rows[_rows.Count - 1] : null;
+
+        resetButton.navigation = new Navigation
+        {
+            mode = Navigation.Mode.Explicit,
+            selectOnUp = lastRow,
+            selectOnDown = firstRow,
+            selectOnRight = backButton
+        };
+        backButton.navigation = new Navigation
+        {
+            mode = Navigation.Mode.Explicit,
+            selectOnUp = lastRow,
+            selectOnDown = firstRow,
+            selectOnLeft = resetButton
+        };
     }
 
     // Unity's ScrollRect doesn't follow the selection. The first row snaps to

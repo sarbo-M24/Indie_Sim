@@ -86,6 +86,7 @@ public class TriangleEnemy : MonoBehaviour, IDamageable
     [Tooltip("Degrees from perfect aim at which shooting begins.")]
     [SerializeField] private float aimTolerance = 4f;
     [SerializeField] private GameObject deathParticlePrefab; // Assign in Inspector
+    [SerializeField] private CoinDrop coinDrop = new CoinDrop();
     [Header("── NosePoint Offset ─────────────────────────────")]
     [Tooltip("Local -Y offset for the NosePoint (bullet spawn). Adjust to match " +
              "wherever your triangle sprite's flat base centre sits in local space.")]
@@ -204,6 +205,8 @@ public class TriangleEnemy : MonoBehaviour, IDamageable
         {
             Instantiate(deathParticlePrefab, transform.position, Quaternion.identity);
         }
+        BloodSplatterEffect.SpawnDeathSplatter(transform.position);
+        coinDrop.Drop(transform.position);
         // Let EnemyDeath script handle visuals/cleanup if present, otherwise just destroy
         EnemyDeath deathHandler = GetComponent<EnemyDeath>();
         if (deathHandler != null)

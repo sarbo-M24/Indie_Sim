@@ -9,7 +9,11 @@ using UnityEngine.InputSystem;
 ///
 /// Rebinding, the usual way: select a binding, press the new key/button
 /// (on the keyboard tab, scrolling the mouse wheel binds the wheel).
-/// Esc (keyboard) or Start (gamepad) cancels. If another action on the same
+/// A row only listens to its own device, so the other device's back button
+/// is a safe cancel: keyboard rows cancel on Esc or B, gamepad rows on Esc
+/// or Start (B can't cancel there — it's bindable). The prompt is worded for
+/// the device the player started the rebind with, and warns when that's not
+/// the device being bound (e.g. a keyboard key picked with the pad). If another action on the same
 /// tab already uses that key, the two swap. While listening, the UI map is
 /// off so the key being bound can't also click, navigate or close the menu.
 /// Overrides are stored in GameSettings.bindingOverridesJson (saved when
@@ -61,9 +65,11 @@ public class ControlsPanel : TabbedMenuPanel
                 _wheelPath = MouseWheelPath;
                 _operation.Cancel();
             }
-            // Either device's cancel works whichever tab is listening.
+            // Esc and Start cancel on either tab. B too on the keyboard tab,
+            // where a pad button can't be the new binding anyway.
             else if ((Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
-                     || (Gamepad.current != null && Gamepad.current.startButton.wasPressedThisFrame))
+                     || (Gamepad.current != null && Gamepad.current.startButton.wasPressedThisFrame)
+                     || (!_listeningRow.IsGamepad && Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame))
             {
                 _operation.Cancel();
             }
@@ -89,7 +95,7 @@ public class ControlsPanel : TabbedMenuPanel
         _listeningRow = row;
         _wheelPath = null;
         row.ShowWaiting(gamepad ? "Press a button..." : "Press a key...");
-        SetHint(gamepad ? "Press a button to bind  ·  START to cancel" : "Press a key, mouse button or scroll the wheel  ·  ESC to cancel");
+        SetHint(ListeningHint(gamepad, InputManager.UsingGamepad));
 
         var operation = action.PerformInteractiveRebinding(row.BindingIndex)
             .WithExpectedControlType("Button")
@@ -123,6 +129,26 @@ public class ControlsPanel : TabbedMenuPanel
         }
 
         _operation = operation.Start();
+    }
+
+    // Worded for the device the player is holding (the one that started the
+    // rebind) — it's what they'll reach for to cancel.
+    private static string ListeningHint(bool bindingGamepad, bool playerOnGamepad)
+    {
+        string back = BindingLabels.PadControl("buttonEast");
+        string start = BindingLabels.PadControl("start");
+
+        if (bindingGamepad)
+        {
+            if (playerOnGamepad) return $"Press a button to bind  ·  {start.ToUpper()} to cancel";
+            return Gamepad.current == null
+                ? "Controller binding: connect a pad and press a button  ·  ESC to cancel"
+                : "Controller binding: press a button on the pad  ·  ESC to cancel";
+        }
+
+        if (playerOnGamepad)
+            return $"Keyboard binding: press a key or mouse button  ·  {back.ToUpper()} to cancel";
+        return "Press a key, mouse button or scroll the wheel  ·  ESC to cancel";
     }
 
     // A cancel caused by the wheel is really a completed rebind to the wheel.
