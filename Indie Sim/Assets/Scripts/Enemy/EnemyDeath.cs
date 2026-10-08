@@ -17,10 +17,6 @@ public class EnemyDeath : MonoBehaviour
     [SerializeField] private GameObject deathEffect;
     [SerializeField] private float deathEffectDuration = 2f;
 
-    [Header("Audio")]
-    [SerializeField] private AudioSource audioSource;
-    [SerializeField] private AudioClip deathSound;
-
     [Header("Component Management")]
     [SerializeField] private bool disableAllScripts = true;
     [SerializeField] private MonoBehaviour[] scriptsToDisable; // Drag specific scripts here
@@ -34,7 +30,6 @@ public class EnemyDeath : MonoBehaviour
         // Cache components
         spriteRenderer = GetComponent<SpriteRenderer>();
         enemyCollider = GetComponent<Collider2D>();
-        audioSource = GetComponent<AudioSource>();
     }
 
     /// <summary>
@@ -42,8 +37,7 @@ public class EnemyDeath : MonoBehaviour
     /// </summary>
     public void HandleDeath()
     {
-        // Play death sound first
-        PlayDeathSound();
+        // The death sound is the shared Sfx EnemyDeath, played by Enemy / TriangleEnemy.
 
         // Spawn death effect
         SpawnDeathEffect();
@@ -55,16 +49,8 @@ public class EnemyDeath : MonoBehaviour
         }
         else
         {
-            // No corpse - just destroy after sound finishes
-            Destroy(gameObject, deathSound != null ? deathSound.length : 0.1f);
-        }
-    }
-
-    private void PlayDeathSound()
-    {
-        if (audioSource != null && deathSound != null)
-        {
-            audioSource.PlayOneShot(deathSound);
+            // No corpse - just destroy
+            Destroy(gameObject, 0.1f);
         }
     }
 

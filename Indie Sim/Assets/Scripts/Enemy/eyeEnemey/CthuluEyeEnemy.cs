@@ -214,6 +214,7 @@ public class CthulhuEyeEnemy : MonoBehaviour, IDamageable
         if (isDead) return;
         isDead = true;
 
+        Sfx.Play(SfxId.EnemyDeath);
         BloodSplatterEffect.SpawnDeathSplatter(transform.position);
         coinDrop.Drop(transform.position);
         Destroy(gameObject);

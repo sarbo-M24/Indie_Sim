@@ -12,7 +12,7 @@ using UnityEngine.SceneManagement;
 /// InputManager. Without the mixer, the Master slider still works through
 /// AudioListener.volume; the per-group sliders do nothing until it exists.
 ///
-/// Routing: MusicManager sends its sources to MusicGroup. Any scene
+/// Routing: MusicDirector sends its sources to MusicGroup. Any scene
 /// AudioSource with no output group is sent to SfxGroup on scene load.
 /// Sources on prefabs spawned later (enemies, bullets) need their Output set
 /// to SFX on the prefab itself.

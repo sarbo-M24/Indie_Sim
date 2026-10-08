@@ -16,6 +16,9 @@ public class RoguelikeManager : MonoBehaviour
     [SerializeField] private int roomsTillBoss = 5; // Raised from 3 (Step 4) so a run has enough shop visits (4-5) to actually fill the pack and exercise Burn.
     [SerializeField] private string bossSceneName = "BossLevel";
     [SerializeField] private string roguelikeScene2Name = "RoguelikeModeEmpty";
+    [Tooltip("Off (demo): every dungeon plays the same — spawners keep their prefab difficulty and the dungeon never grows. " +
+             "On: spawners get more budget / spawn faster each level, and each dungeon has a 50% chance to gain a room.")]
+    [SerializeField] private bool progressiveDifficulty = false;
 
     [Header("Dungeon Timer")]
     [Tooltip("Master switch. When off, no countdown runs and the player is never killed by it.")]
@@ -193,7 +196,8 @@ public class RoguelikeManager : MonoBehaviour
 
     private int GetCurrentDungeonSize()
     {
-        return BASE_DUNGEON_SIZE + dungeonSizeIncrement;
+        // Ignores growth saved by an older run too, while progression is off.
+        return progressiveDifficulty ? BASE_DUNGEON_SIZE + dungeonSizeIncrement : BASE_DUNGEON_SIZE;
     }
 
     public void GenerateNewDungeon()
@@ -384,7 +388,7 @@ public class RoguelikeManager : MonoBehaviour
         Debug.Log($"[RoguelikeManager] Level increased to {currentLevel}!");
 
         float randomRoll = Random.value;
-        if (randomRoll <= SIZE_INCREASE_CHANCE)
+        if (progressiveDifficulty && randomRoll <= SIZE_INCREASE_CHANCE)
         {
             dungeonSizeIncrement++;
             Debug.Log($"[RoguelikeManager] Size increased! Difficulty: {dungeonSizeIncrement}");
@@ -404,6 +408,8 @@ public class RoguelikeManager : MonoBehaviour
 
     private void UpdateSpawnerDifficulty()
     {
+        if (!progressiveDifficulty) return;
+
         EnemySpawner[] spawners = FindObjectsOfType<EnemySpawner>();
         foreach (EnemySpawner spawner in spawners)
             spawner.UpdateDifficultyForLevel(currentLevel);
@@ -413,6 +419,8 @@ public class RoguelikeManager : MonoBehaviour
 
     public void OnLevelStart(int levelNumber)
     {
+        if (!progressiveDifficulty) return;
+
         EnemySpawner[] spawners = FindObjectsOfType<EnemySpawner>();
         foreach (EnemySpawner spawner in spawners)
             spawner.UpdateDifficultyForLevel(levelNumber);

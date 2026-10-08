@@ -250,6 +250,8 @@ public class Enemy : MonoBehaviour, IDamageable
         }
         // ** END KILL TRACKING **
 
+        Sfx.Play(SfxId.EnemyDeath);
+
         // PLAY BLOOD SPLATTER EFFECT ON DEATH
         SpawnBloodSplatterOnDeath();
 

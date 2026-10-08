@@ -208,6 +208,7 @@ public class PlayerController : MonoBehaviour
             if (safeDashDistance < 1f) return;
         }
 
+        Sfx.Play(SfxId.Dash);
         StartCoroutine(DashCoroutine(safeDashDistance));
     }
 

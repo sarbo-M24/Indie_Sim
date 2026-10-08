@@ -205,6 +205,7 @@ public class TriangleEnemy : MonoBehaviour, IDamageable
         {
             Instantiate(deathParticlePrefab, transform.position, Quaternion.identity);
         }
+        Sfx.Play(SfxId.EnemyDeath);
         BloodSplatterEffect.SpawnDeathSplatter(transform.position);
         coinDrop.Drop(transform.position);
         // Let EnemyDeath script handle visuals/cleanup if present, otherwise just destroy

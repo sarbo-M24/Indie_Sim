@@ -125,6 +125,7 @@ public class PlayerStompController : MonoBehaviour
             CoinManager.Instance.SpendCoins(stompCoinCost);
         }
 
+        Sfx.Play(SfxId.Stomp);
         PerformStomp();
 
         stompCharges--;

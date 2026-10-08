@@ -6066,7 +6066,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 46483fae30e321b44a43ce408bedced6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerHealth
-  coinsLostPerHit: 30
+  coinsLostPerHit: 15
   useCoinsAsHealth: 1
   coinPrefab: {fileID: 5576711845111610058, guid: 6507a99d4a98a9e4a91ab2d3fd43d539, type: 3}
   coinsToSpawnOnDamage: 15
@@ -6082,7 +6082,7 @@ MonoBehaviour:
   invincibilityToggleKey: 105
   enableToggleInBuild: 1
   deathSprite: {fileID: 21300000, guid: 6009114e93cdb4c49b5f002c50ad2cc9, type: 3}
-  deathDelay: 0.75
+  deathDelay: 0.1
   deathUIPanel: {fileID: 0}
   aliveSprite: {fileID: -7400060470875509960, guid: 3ad79bc8df3cfd34e8ef766c8c930b24, type: 3}
   healthHeartBar: {fileID: 0}

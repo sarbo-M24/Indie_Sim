@@ -326,6 +326,7 @@ public class PlayerHealth : MonoBehaviour
         if (isDead) return;
 
         isDead = true;
+        Sfx.Play(SfxId.PlayerDeath);
         Debug.Log($"[PlayerHealth] Die() called on {gameObject.name} (instance {GetInstanceID()}) in scene '{gameObject.scene.name}'. deathUIPanel currently: {(deathUIPanel != null ? deathUIPanel.name : "NULL")}");
 
         StopAllCoroutines();

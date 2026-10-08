@@ -22,6 +22,10 @@ public class MainMenu : MonoBehaviour
     [Tooltip("Resumes the most recently played slot with an active run. Hidden when there is none.")]
     [SerializeField] private GameObject continueButton;
 
+    [Header("Credits")]
+    [Tooltip("Opened by the Credits button. Built by Tools/UI/Build Credits Panel.")]
+    [SerializeField] private CreditsPanel creditsPanel;
+
     [Header("Tutorial")]
     [Tooltip("Replays the tutorial (back to this menu at the end). Hidden until it has been finished once.")]
     [SerializeField] private GameObject tutorialButton;
@@ -31,6 +35,7 @@ public class MainMenu : MonoBehaviour
         if (settingsPanel != null) settingsPanel.gameObject.SetActive(false);
         if (controlsPanel != null) controlsPanel.gameObject.SetActive(false);
         if (slotSelectPanel != null) slotSelectPanel.gameObject.SetActive(false);
+        if (creditsPanel != null) creditsPanel.gameObject.SetActive(false);
 
         if (continueButton != null) continueButton.SetActive(false);
         if (tutorialButton != null) tutorialButton.SetActive(false);
@@ -121,6 +126,24 @@ public class MainMenu : MonoBehaviour
 
     /// <summary>Wire to the main menu's Controls button.</summary>
     public void OpenControls() => OpenSubMenu(controlsPanel);
+
+    /// <summary>Wire to the main menu's Credits button.</summary>
+    public void OpenCredits()
+    {
+        if (creditsPanel == null) return;
+
+        EventSystem eventSystem = EventSystem.current;
+        GameObject openedFrom = eventSystem != null ? eventSystem.currentSelectedGameObject : null;
+
+        creditsPanel.Open(() =>
+        {
+            if (menuButtons != null) menuButtons.SetActive(true);
+            if (openedFrom != null && eventSystem != null && InputManager.UsingGamepad)
+                eventSystem.SetSelectedGameObject(openedFrom);
+        });
+
+        if (menuButtons != null) menuButtons.SetActive(false);
+    }
 
     // Hides the menu buttons while the sub-menu is open and brings them back
     // (focus on the button that opened it) when it closes.

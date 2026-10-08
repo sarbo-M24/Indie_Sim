@@ -13,6 +13,8 @@ using UnityEngine.UI;
 /// a reddish tint on the button's Image. Same focus rule for both, so mouse
 /// and pad look identical.
 ///
+/// Buttons also play Sfx UiClick when pressed.
+///
 /// Scales localScale only (layout groups size by rect, not scale, so this
 /// never fights the layout), in unscaled time so it works while paused.
 /// </summary>
@@ -38,6 +40,9 @@ public class ButtonFocusScale : MonoBehaviour, IPointerEnterHandler, IPointerExi
     {
         _selectable = GetComponent<Selectable>();
         _baseScale = transform.localScale;
+
+        // Every menu adds this to its buttons, so it's also where they get the click sound.
+        if (_selectable is Button button) button.onClick.AddListener(() => Sfx.Play(SfxId.UiClick));
     }
 
     /// <summary>Switches this button to the bigger grow + red tint look. Safe to call more than once.</summary>

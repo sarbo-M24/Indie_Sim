@@ -17,7 +17,8 @@ public enum TutorialAction
 /// One room of the tutorial. A trigger box: when the player walks in, its hint
 /// shows ("{Move} to move"); once they perform Required Action, the banner
 /// switches to Complete Text ("Now go to the next room") and the door
-/// blockers in Disable On Complete open.
+/// blockers in Disable On Complete open. Then Steps teach more actions in the
+/// same room first ("{Move} to move", then "{SwitchWeapon} to switch weapons").
 ///
 /// Combat rooms: list the room's spawners under Spawners. They wake when the
 /// player walks in (give them Activate By Proximity off so they don't wake
@@ -45,6 +46,22 @@ public class TutorialHintZone : MonoBehaviour
     [Tooltip("Fire / Dash / Stomp / Reload / Switch Weapon: presses needed.")]
     [Min(1)] [SerializeField] private int pressCount = 1;
 
+    [System.Serializable]
+    private class Step
+    {
+        [Tooltip("Same tokens as Hint.")]
+        [TextArea] public string hint;
+        public TutorialAction action = TutorialAction.SwitchWeapon;
+        [Tooltip("Move: seconds of movement needed.")]
+        public float moveSeconds = 1f;
+        [Tooltip("Fire / Dash / Stomp / Reload / Switch Weapon: presses needed.")]
+        [Min(1)] public int pressCount = 1;
+    }
+
+    [Tooltip("More tasks in this same room, taught one after another once Required Action is done. " +
+             "Complete Text shows after the last one.")]
+    [SerializeField] private Step[] thenSteps;
+
     [Header("Enemies")]
     [Tooltip("Woken when the player first walks into this zone.")]
     [SerializeField] private EnemySpawner[] spawners;
@@ -58,7 +75,8 @@ public class TutorialHintZone : MonoBehaviour
     [SerializeField] private GameObject[] enableOnComplete;
     [SerializeField] private UnityEvent onComplete;
 
-    public string Hint => hint;
+    /// <summary>The current task's hint: Hint, then each Then Step's in turn.</summary>
+    public string Hint => stepIndex == 0 ? hint : thenSteps[stepIndex - 1].hint;
     public string CompleteText =>
         GameManager.Instance != null && GameManager.Instance.IsTutorialReplay && !string.IsNullOrEmpty(replayCompleteText)
             ? replayCompleteText
@@ -67,6 +85,7 @@ public class TutorialHintZone : MonoBehaviour
 
     private float moveTime;
     private int presses;
+    private int stepIndex; // 0 = Required Action, n = thenSteps[n - 1]
     private bool actionDone;
     private bool spawnersWoken;
 
@@ -100,33 +119,55 @@ public class TutorialHintZone : MonoBehaviour
         TutorialDirector director = TutorialDirector.Instance;
         if (director == null || director.CurrentZone != this) return;
 
-        if (!actionDone) actionDone = TrackAction();
+        if (!actionDone && TrackCurrentStep()) NextStep(director);
         if (actionDone && (!HasEnemies || RoomCleared())) Complete();
     }
 
-    private bool TrackAction()
+    private bool TrackCurrentStep()
+    {
+        if (stepIndex == 0) return TrackAction(requiredAction, moveSeconds, pressCount);
+        Step step = thenSteps[stepIndex - 1];
+        return TrackAction(step.action, step.moveSeconds, step.pressCount);
+    }
+
+    // On to the next Then Step (its hint replaces the banner), or done after the last.
+    private void NextStep(TutorialDirector director)
+    {
+        if (thenSteps == null || stepIndex >= thenSteps.Length)
+        {
+            actionDone = true;
+            return;
+        }
+
+        stepIndex++;
+        moveTime = 0f;
+        presses = 0;
+        director.Show(Hint);
+    }
+
+    private bool TrackAction(TutorialAction action, float seconds, int count)
     {
         PlayerControls.PlayerActions player = InputManager.Controls.Player;
-        switch (requiredAction)
+        switch (action)
         {
             case TutorialAction.Move:
                 // deltaTime, not unscaled: no progress while paused.
                 if (player.Move.ReadValue<Vector2>().sqrMagnitude > 0.04f) moveTime += Time.deltaTime;
-                return moveTime >= moveSeconds;
-            case TutorialAction.Fire: return CountPress(player.Fire);
-            case TutorialAction.Dash: return CountPress(player.Dash);
-            case TutorialAction.Stomp: return CountPress(player.Stomp);
-            case TutorialAction.Reload: return CountPress(player.Reload);
-            case TutorialAction.SwitchWeapon: return CountPress(player.SwitchWeapon);
+                return moveTime >= seconds;
+            case TutorialAction.Fire: return CountPress(player.Fire, count);
+            case TutorialAction.Dash: return CountPress(player.Dash, count);
+            case TutorialAction.Stomp: return CountPress(player.Stomp, count);
+            case TutorialAction.Reload: return CountPress(player.Reload, count);
+            case TutorialAction.SwitchWeapon: return CountPress(player.SwitchWeapon, count);
             default: return true; // None
         }
     }
 
     // The Player map is off while paused / in a menu, so those presses never count.
-    private bool CountPress(InputAction action)
+    private bool CountPress(InputAction action, int count)
     {
         if (action.WasPerformedThisFrame()) presses++;
-        return presses >= pressCount;
+        return presses >= count;
     }
 
     private void WakeSpawners()

@@ -2,9 +2,9 @@ using UnityEngine;
 
 /// <summary>
 /// Gameplay HUD row of the cigs currently in the pack. Fixed pool sized to
-/// Pack.MaxSlots, positional like BurningCigsHUD: slot i shows
-/// Pack.HeldCigs[i], extras are hidden. Refreshes on Pack.Changed rather than
-/// polling.
+/// Pack.MaxSlots: the held cigs that aren't burning, in pack order, extras
+/// hidden (burning ones are on BurningCigsHUD). Refreshes on Pack.Changed
+/// rather than polling.
 /// </summary>
 public class HeldCigsHUD : MonoBehaviour
 {
@@ -12,6 +12,7 @@ public class HeldCigsHUD : MonoBehaviour
     [SerializeField] private HeldCigIconView[] slots;
 
     private Pack _pack;
+    private readonly System.Collections.Generic.List<CigInstance> _shown = new System.Collections.Generic.List<CigInstance>();
 
     private void Start()
     {
@@ -29,13 +30,20 @@ public class HeldCigsHUD : MonoBehaviour
     private void Refresh()
     {
         if (slots == null) return;
-        var held = _pack != null ? _pack.HeldCigs : null;
+
+        // Burning cigs leave this row the moment they're burned (like the
+        // shop's pack list) — BurningCigsHUD shows them until the level ends.
+        _shown.Clear();
+        if (_pack != null)
+            foreach (CigInstance instance in _pack.HeldCigs)
+                if (instance?.Data != null && !instance.IsBurning)
+                    _shown.Add(instance);
 
         for (int i = 0; i < slots.Length; i++)
         {
             if (slots[i] == null) continue;
-            if (held != null && i < held.Count && held[i]?.Data != null)
-                slots[i].Populate(held[i], rarityConfig);
+            if (i < _shown.Count)
+                slots[i].Populate(_shown[i], rarityConfig);
             else
                 slots[i].SetEmpty();
         }

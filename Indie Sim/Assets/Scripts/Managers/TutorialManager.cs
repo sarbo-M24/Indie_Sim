@@ -33,6 +33,7 @@ public class TutorialManager : MonoBehaviour
         if (GameSession.Instance != null && GameSession.Instance.CurrentRun.ResumePoint == RunResumePoint.Store)
         {
             if (instructionPanel != null) instructionPanel.SetActive(false);
+            SceneMusic.ReleaseCue();
             return;
         }
 
@@ -70,7 +71,8 @@ public class TutorialManager : MonoBehaviour
         // Set up the skip button
         if (skipButton != null)
         {
-            skipButton.onClick.RemoveAllListeners();
+            // Not RemoveAllListeners — that would also drop the button's click sound (ButtonFocusScale).
+            skipButton.onClick.RemoveListener(SkipTutorial);
             skipButton.onClick.AddListener(SkipTutorial);
         }
 
@@ -138,6 +140,9 @@ public class TutorialManager : MonoBehaviour
 
         // Unpause the game
         PauseController.SetFrozen(this, false);
+
+        // Scenes whose SceneMusic waits for this panel start their music now.
+        SceneMusic.ReleaseCue();
 
         // Remove the button listener to prevent memory leaks
         if (skipButton != null)

@@ -1052,9 +1052,13 @@ public class DungeonMapGenerator : MonoBehaviour
         // Adjust spawn rate (optional - make larger rooms spawn faster/slower)
         spawner.spawnInterval = UnityEngine.Random.Range(1f, 3f); // Random spawn rate per room
 
-        spawner.SetDungeonLevel(mapParametersSO.nodeCount);
+        // Level scaling is RoguelikeManager's job (UpdateSpawnerDifficulty, behind
+        // its Progressive Difficulty switch). This used to also call
+        // SetDungeonLevel(mapParametersSO.nodeCount) — the asset's fixed room
+        // count, not the run's level — giving every spawner level-7 scaling
+        // from the first dungeon on.
 
-        Debug.Log($"Configured spawner in room {room.uniqueId}: radius={spawner.spawnRadius}, maxEnemies={spawner.maxEnemies}, dungeonLevel={mapParametersSO.nodeCount}");
+        Debug.Log($"Configured spawner in room {room.uniqueId}: radius={spawner.spawnRadius}, maxEnemies={spawner.maxEnemies}, interval={spawner.spawnInterval:F2}");
     }
 
     /// <summary>

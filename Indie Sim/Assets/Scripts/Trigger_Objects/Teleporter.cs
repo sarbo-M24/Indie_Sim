@@ -16,6 +16,19 @@ public class Teleporter : MonoBehaviour
     [Header("Visual Settings")]
     [SerializeField] private float glowIntensity = 1f;
     [SerializeField] private Color teleporterColor = Color.cyan;
+    [Tooltip("The sprite's own object — it spins and pulses, so the trigger and FX on the root don't. Empty = the first child SpriteRenderer's.")]
+    [SerializeField] private Transform visual;
+    [Tooltip("Particles + light. Optional.")]
+    [SerializeField] private TeleporterFX fx;
+
+    [Header("Spin (degrees per second)")]
+    [SerializeField] private float idleSpinSpeed = 25f;
+    [Tooltip("While the player is inside the trigger.")]
+    [SerializeField] private float chargedSpinSpeed = 300f;
+    [Tooltip("Reached by the end of the teleport delay.")]
+    [SerializeField] private float teleportSpinSpeed = 1440f;
+    [Tooltip("How quickly the spin speeds up / slows down, in degrees per second².")]
+    [SerializeField] private float spinAcceleration = 600f;
 
     [Header("Cleanup Settings")]
     [SerializeField] private string[] enemyTags = { "Enemy", "EnemySpawner", "Coin", "Relic" };
@@ -45,6 +58,8 @@ public class Teleporter : MonoBehaviour
     // State tracking
     private bool playerInRange = false;
     private bool isTeleporting = false;
+    private Vector3 visualBaseScale = Vector3.one;
+    private float spinSpeed;
 
     // Events for external systems
     public System.Action OnTeleportStarted;
@@ -66,8 +81,12 @@ public class Teleporter : MonoBehaviour
     #region Initialization
     private void InitializeTeleporter()
     {
-        spriteRenderer = GetComponent<SpriteRenderer>();
+        spriteRenderer = GetComponentInChildren<SpriteRenderer>();
         animator = GetComponent<Animator>();
+
+        if (visual == null && spriteRenderer != null) visual = spriteRenderer.transform;
+        if (visual != null) visualBaseScale = visual.localScale;
+        spinSpeed = idleSpinSpeed;
 
         // The tutorial has no dungeon — it needs neither.
         if (!finishesTutorial)
@@ -106,19 +125,26 @@ public class Teleporter : MonoBehaviour
     #endregion
 
     #region Visual Effects
+    // Idle pulse + spin. During the teleport AnimateTeleporter drives the
+    // sprite's scale and colour and ramps the spin itself.
     private void UpdateVisualEffects()
     {
-        if (spriteRenderer == null) return;
+        if (spriteRenderer == null || visual == null) return;
 
-        float pulse = (Mathf.Sin(Time.time * 2f) + 1f) * 0.5f;
-        float intensity = glowIntensity * (0.5f + pulse * 0.5f);
+        if (!isTeleporting)
+        {
+            float target = playerInRange ? chargedSpinSpeed : idleSpinSpeed;
+            spinSpeed = Mathf.MoveTowards(spinSpeed, target, spinAcceleration * Time.deltaTime);
 
-        Color currentColor = teleporterColor;
-        currentColor.a = intensity;
-        spriteRenderer.color = currentColor;
+            float pulse = (Mathf.Sin(Time.time * 2f) + 1f) * 0.5f;
+            Color currentColor = teleporterColor;
+            currentColor.a = glowIntensity * (0.5f + pulse * 0.5f);
+            spriteRenderer.color = currentColor;
 
-        float scale = 1f + pulse * 0.1f;
-        transform.localScale = Vector3.one * scale;
+            visual.localScale = visualBaseScale * (1f + pulse * 0.1f);
+        }
+
+        visual.Rotate(0f, 0f, -spinSpeed * Time.deltaTime);
     }
     #endregion
 
@@ -215,36 +241,38 @@ public class Teleporter : MonoBehaviour
 
         if (particles != null)
             particles.Emit(50);
+
+        if (fx != null)
+            fx.PlayTeleport(teleportDelay);
     }
 
+    // Spins up to Teleport Spin Speed and swells the sprite over the delay.
     private IEnumerator AnimateTeleporter()
     {
+        if (visual == null) yield break;
+
         float duration = teleportDelay;
-        float elapsed = 0f;
-        Vector3 originalScale = transform.localScale;
+        float startSpin = spinSpeed;
         Color originalColor = spriteRenderer != null ? spriteRenderer.color : teleporterColor;
 
-        while (elapsed < duration)
+        for (float elapsed = 0f; elapsed < duration; elapsed += Time.deltaTime)
         {
-            elapsed += Time.deltaTime;
             float progress = elapsed / duration;
-
-            transform.Rotate(0, 0, 360 * Time.deltaTime);
-
-            float scaleMultiplier = 1f + progress * 2f;
-            transform.localScale = originalScale * scaleMultiplier;
+            spinSpeed = Mathf.Lerp(startSpin, teleportSpinSpeed, progress * progress);
+            visual.localScale = visualBaseScale * (1f + progress * 0.6f);
 
             if (spriteRenderer != null)
             {
-                Color animColor = teleporterColor;
-                animColor.a = 1f + progress;
+                // Toward white-hot as it charges.
+                Color animColor = Color.Lerp(teleporterColor, Color.white, progress);
+                animColor.a = 1f;
                 spriteRenderer.color = animColor;
             }
 
             yield return null;
         }
 
-        transform.localScale = originalScale;
+        visual.localScale = visualBaseScale;
         if (spriteRenderer != null)
             spriteRenderer.color = originalColor;
     }
@@ -284,6 +312,7 @@ public class Teleporter : MonoBehaviour
         {
             player = other.gameObject;
             playerInRange = true;
+            if (fx != null) fx.SetCharged(true);
 
             if (requiresKey)
             {
@@ -311,6 +340,7 @@ public class Teleporter : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerInRange = false;
+            if (fx != null) fx.SetCharged(false);
             Debug.Log("Player exited teleporter range");
         }
     }

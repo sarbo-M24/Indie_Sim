@@ -235,7 +235,6 @@ public class VirtualKeyboard : MonoBehaviour
         if (text != null) text.text = label;
 
         Button button = go.GetComponent<Button>();
-        button.onClick.RemoveAllListeners();
         button.onClick.AddListener(() => onClick());
 
         // The inverted highlight replaces the tint; keep only the pressed dip.
