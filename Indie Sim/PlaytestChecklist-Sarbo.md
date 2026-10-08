@@ -1,7 +1,7 @@
 # Playtest checklist — Sarbo's share (2026-10-08)
 
 Every case from `PlaytestCases.md` that needs a person: a real pad press,
-mouse click or key, ears, eyes, a built .exe, or Steam. **142 cases** in six
+mouse click or key, ears, eyes, a built .exe, or Steam. **149 cases** in seven
 sessions, ordered so each session's setup carries into the next. IDs match
 `PlaytestCases.md`; the other 89 cases are Claude's (logic level, on your OK).
 
@@ -17,10 +17,11 @@ PS pad only for E10 / S10.
 |---|---|---|---|
 | 1 | Main menu, slot select, Settings/Controls, Credits — mouse then pad | 52 | 50–60 min |
 | 2 | Tutorial, fresh profile | 9 | 15 min |
-| 3 | Dungeons: combat, pause, death, HUD, teleporter, audio | 31 | 40 min |
+| 3 | Dungeons: combat, pause, death, HUD, teleporter, audio | 30 | 40 min |
 | 4 | Shop | 33 | 35 min |
 | 5 | Editor-only check | 1 | 2 min |
 | 6 | Windows build + Steam | 16 | 60+ min |
+| 7 | Re-check of the first pass's fixes (do this first) | 8 | 15 min |
 
 ---
 
@@ -65,12 +66,12 @@ touch it until a case says so. You'll need **two empty save slots** for A
 | N7 | Restart Play from Boot with only the pad plugged in; don't touch the mouse. First pad press on the main menu. | Hints appear on that first press, not before. | |
 | E2 | With the pad in use, open main menu, Settings, Controls (and later pause, shop, death screen). | Each shows its icon + label hint row (Settings/Controls centred under the window, the rest bottom-left). | |
 | E2c | Open Settings **and** Controls (main menu and pause): no pad, then Xbox, then PS if you have one. | No "LB / RB or Q / E" text. Either side of the tabs: **Q ◀ … ▶ E** with keyboard/no pad, **LB ◀ … ▶ RB** on Xbox, **L1 ◀ … ▶ R1** on PS. Icons swap live and look crisp. | |
-| E3 | Pause menu open with hints showing, **unplug** the pad. Plug it back in, press a button. | Hints disappear immediately on unplug; come back once you press a pad button. | |
+| E3 | Pause menu open with hints showing, **unplug** the pad. Plug it back in, press a button. | Accepted as is: unplugging/plugging alone changes nothing; the next mouse/key input hides the hints, the next pad input shows them. ✅ already |
 | N1 | Pad plugged in, open the pause menu with **Esc**. | No hint row (last input was the keyboard). | |
 | N2 | From N1, press D-pad down or move the stick. | Hint row appears straight away. | |
 | N3 | From N2, nudge the mouse. Then press a pad button. | Mouse: hints vanish straight away. Pad: they're back. | |
 | N4 | Same in Settings / Controls (pause and main menu). | Tab glyphs swap live: Q ◀ ▶ E after mouse/keyboard, LB ◀ ▶ RB (L1/R1 on PS) after the pad. | |
-| N6 | Unplug the pad while hints show; plug it back in without pressing anything. | Hints hide and stay hidden until a pad button or stick is used. | |
+| N6 | Unplug the pad while hints show; plug it back in without pressing anything. | Accepted as is: unplugging/plugging alone changes nothing; the next mouse/key input hides the hints, the next pad input shows them. ✅ already |
 | N8 | Main menu, pause, slot select: use the pad. | The **mouse cursor disappears** with the first pad input and hints show. Only the pad-selected button is highlighted, even with the hidden cursor resting on another button. | |
 | N9 | From N8, nudge the mouse; separately press a key. | Cursor reappears where it was, hints hide, hover highlights work again. | |
 | E10 | *(Optional, PS pad)* Repeat E2 with a DualShock/DualSense. | Cross/Circle icons and R1. | |
@@ -136,7 +137,6 @@ start a run. Headphones on. Pad and mouse both available.
 | P12 | Listen from the main menu, through the dungeon panel (silent), Skip (music in), shop, next dungeon, boss, back to menu. | Crossfades are smooth: no clicks, no gap, no sudden jump. Tracks loop without an audible seam. Music sits under the SFX. | |
 | Q4 | Dash a few times; then try with no charges left, and while standing still. | Dash sound on every real dash; none when no dash happens. | |
 | Q5 | Stomp; then try with no charges. | Stomp sound on real stomps only. | |
-| P13 | Settings ▸ Audio ▸ **Mute When Unfocused** on. Click outside the Editor / Alt-Tab, then come back. Turn it off again. | All sound mutes while unfocused and returns on focus. | |
 
 ### 3b. Controls and pause
 
@@ -271,3 +271,21 @@ to a fresh folder. S14–S16 **fail today** until the three release fixes in
 | S14 | Mid-dungeon press **I**, then take damage. | No god mode. | |
 | S15 | Press **H**. | Nothing happens (no test flash / hitstop). | |
 | S16 | Look at the dungeon HUD. | No debug buttons. | |
+
+---
+
+## Session 7 — Re-check of the first pass's fixes (2026-10-08)
+
+Do this one first. Mute When Unfocused (P13) is gone; the hint unplug
+behaviour (E3, N6) was accepted as is.
+
+| ID | Steps | Expected | ✓ |
+|---|---|---|---|
+| Y1 | Open each confirm popup: slot **Delete** (main menu), pause ▸ **Main Menu** and pause ▸ **Give Up** (dungeon), the shop's **brand conflict** (buy a Mild with a Regular held, or the reverse). | Each box has a thin white border; its buttons look like the main menu's (bordered grey bar, black pixel-font capitals). Nothing overlaps or is cut off. | |
+| Y2 | Same popups on the pad. | Focus starts on the safe button (CANCEL / NO); Left/Right swaps; the focused one grows. B cancels. | |
+| Y3 | Controls ▸ both tabs: hover bindings with the mouse, move through them with the pad, start a rebind. | Focused binding is **white with black text**; the rest dark grey with white text. Stays white during "Press a key...", back to normal after. Greyed-out bindings never highlight. | |
+| Y4 | Settings ▸ Audio. | No Mute When Unfocused row, no gap; pad up/down runs through the sliders to the footer. | |
+| Y5 | Alt-Tab / click outside with music playing. | Sound keeps playing. | |
+| Y6 | Kill the boss. | **DEMO COMPLETE** title, thanks + wishlist message, kills/coins/dungeons, a main-menu-style **MAIN MENU** button. Nothing overlaps. | |
+| Y7 | Y6 on the pad only. | MAIN MENU already selected. Mash the D-pad / stick first: focus stays on it (no softlock). Then A goes to the main menu. | |
+| Y8 | Tutorial and boss arena: look at the HUD; in the boss arena have a burning cig and held cigs from the last shop, fire and reload. | Same layout as the dungeon HUD (cig pack row, burning bar, ammo count, coins/stomp). Ammo updates; the burning bar shows if one is burning.  | |

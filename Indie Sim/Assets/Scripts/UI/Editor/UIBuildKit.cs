@@ -24,6 +24,64 @@ public static class UIBuildKit
 
     private static Sprite Sprite => AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
 
+    // The main menu's button look: the bordered grey bar with black pixel-font text.
+    private const string MenuButtonSpritePath = "Assets/2d Assets/Upgrades/button.png";
+    private const string MenuButtonSpriteName = "button_0";
+    private const string MenuFontPath = "Assets/TextMesh Pro/Resources/Fonts & Materials/BoldPixels SDF.asset";
+    /// <summary>Size that keeps the menu button sprite's ~5:1 shape (its border stays even).</summary>
+    public static readonly Vector2 MenuButtonSize = new Vector2(300f, 60f);
+
+    public static Sprite MenuButtonSprite
+    {
+        get
+        {
+            foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(MenuButtonSpritePath))
+                if (asset is Sprite sprite && sprite.name == MenuButtonSpriteName) return sprite;
+            return null;
+        }
+    }
+
+    public static TMP_FontAsset MenuFont => AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(MenuFontPath);
+
+    /// <summary>Restyles an existing button to the main menu look. fontSize &lt;= 0 keeps the label's size.</summary>
+    public static void StyleMenuButton(Button button, float fontSize = 0f)
+    {
+        Image image = button.targetGraphic as Image;
+        if (image != null)
+        {
+            image.sprite = MenuButtonSprite;
+            image.type = Image.Type.Simple;
+            image.color = Color.white;
+        }
+
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(0.961f, 0.961f, 0.961f, 1f);
+        colors.selectedColor = colors.highlightedColor;
+        button.colors = colors;
+
+        TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+        if (label == null) return;
+        TMP_FontAsset font = MenuFont;
+        if (font != null)
+        {
+            label.font = font;
+            label.fontSharedMaterial = font.material;
+        }
+        label.color = Color.black;
+        label.text = label.text.Trim().ToUpperInvariant();
+        if (fontSize > 0f) label.fontSize = fontSize;
+        EditorUtility.SetDirty(button.gameObject);
+    }
+
+    /// <summary>Thin white border around a panel, same as the shop's replace window.</summary>
+    public static void AddBorder(Graphic graphic)
+    {
+        if (!graphic.TryGetComponent(out Outline outline)) outline = graphic.gameObject.AddComponent<Outline>();
+        outline.effectColor = Color.white;
+        outline.effectDistance = new Vector2(3f, -3f);
+    }
+
     public static RectTransform NewRect(string name, Transform parent)
     {
         GameObject go = new GameObject(name, typeof(RectTransform));
@@ -102,15 +160,18 @@ public static class UIBuildKit
         return box;
     }
 
-    /// <summary>A wired, hidden ConfirmDialog. Yes is styled as the dangerous option.</summary>
+    /// <summary>A wired, hidden ConfirmDialog with main-menu-style buttons in a bordered box.</summary>
     public static ConfirmDialog BuildConfirmDialog(Transform parent, string name, string message, string yesText, string noText, bool oversized = false)
     {
         RectTransform box = ModalBox(parent, name, new Vector2(760f, 340f), oversized);
         RectTransform dialogRoot = (RectTransform)box.parent;
+        AddBorder(box.GetComponent<Image>());
 
         TMP_Text messageText = Label(box, "Message", message, 32, Center, new Vector2(0f, 50f), new Vector2(680f, 150f), Color.white);
-        Button yes = MakeButton(box, "Yes Button", yesText, Bottom, new Vector2(-150f, 70f), new Vector2(260f, 80f), Danger, 30);
-        Button no = MakeButton(box, "No Button", noText, Bottom, new Vector2(150f, 70f), new Vector2(260f, 80f), Card, 30);
+        Button yes = MakeButton(box, "Yes Button", yesText, Bottom, new Vector2(-170f, 70f), MenuButtonSize, Color.white, 28);
+        Button no = MakeButton(box, "No Button", noText, Bottom, new Vector2(170f, 70f), MenuButtonSize, Color.white, 28);
+        StyleMenuButton(yes);
+        StyleMenuButton(no);
 
         ConfirmDialog dialog = dialogRoot.gameObject.AddComponent<ConfirmDialog>();
         SerializedObject so = new SerializedObject(dialog);

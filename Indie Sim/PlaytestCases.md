@@ -68,14 +68,15 @@ G11, G13–G17, H1–H3, H5, H7, I1, I10, I11. The code has changed since
 | N | 10 | — | all 10 |
 | O | 8 | — | all 8 |
 | X | 10 | X1, X2, X7, X9, X10 | X3, X4, X5, X6, X8 |
-| P | 13 | P1–P11 | P12, P13 |
+| P | 12 (P13 removed) | P1–P11 | P12 |
 | Q | 9 | Q6, Q7, Q8, Q9 | Q1–Q5 |
 | R | 6 | R1, R2, R3 | R4, R5, R6 |
 | T | 7 | T1–T6 | T7 |
 | V | 8 | V3, V5, V6, V8 | V1, V2, V4, V7 |
 | W | 3 | W1, W2, W3 | — |
 | S | 16 | — | all 16 |
-| **Total** | **231** | **89** | **142** |
+| Y | 8 | — | all 8 |
+| **Total** | **238** | **89** | **149** |
 
 ## Claude's run — 2026-10-08
 
@@ -197,7 +198,7 @@ The glyph set is filled with Xbox A/B/D-pad + RB and PlayStation Cross/Circle + 
 | E2 | Plug in an Xbox pad. Open each of the above. | Each shows its 4-icon + label row (Settings/Controls centred under the window, the rest bottom-left). The shop shows the **RB** glyph right of Continue. |
 | E2b | With a pad: die, and open the tutorial panel. | Each shows **one** hint only: A / Cross "Select". No Up, Down or Back, even after unplugging and replugging the pad. |
 | E2c | Open Settings **and Controls** (pause and main menu): no pad, then Xbox, then PS. | The "LB / RB or Q / E" text is gone. Either side of the tabs: **Q ◀ … ▶ E** with no pad, **LB ◀ … ▶ RB** on Xbox, **L1 ◀ … ▶ R1** on PS. Icons swap live on plug/unplug and look crisp (no blur). |
-| E3 | Pause menu open, **unplug** the pad. | Hint row disappears immediately. Plug it back in: it reappears. |
+| E3 | Pause menu open, **unplug** the pad. | **Accepted as is (2026-10-08):** hints follow the last device *used*, so unplugging or plugging in alone changes nothing; the next mouse/key input hides them and the next pad input shows them. |
 | E4 | In the shop, press **RB**. | Same as clicking Continue: the next dungeon generates. Afterwards: quit to menu, continue the slot, and you resume at the **start of that next level** (checkpoint saved). |
 | E5 | In the shop, open the pause menu, then Settings. Press **RB**. | Settings switches tab. The shop does **not** continue. Back out to the pause menu and press RB: still nothing. |
 | E6 | In the shop, trigger a brand-conflict buy (the replace popup, `ReplaceConfirmPanel`) and press RB. | Nothing happens; the popup stays, focus stays on it (starts on **Cancel**). |
@@ -401,7 +402,7 @@ Hint rows, the RB glyph by the shop's Continue, the virtual keyboard's key icons
 | N3 | From N2, nudge the mouse. | Hint row disappears straight away. Pad button again: back. |
 | N4 | Same in Settings / Controls (pause and main menu). | Tab glyphs swap live: Q ◀ ▶ E after the mouse/keyboard, LB ◀ ▶ RB (L1/R1 on PS) after the pad. |
 | N5 | Shop with a pad: use the pad, then the mouse. | RB glyph by Continue shows after the pad, hides after the mouse. RB still continues either way. |
-| N6 | Unplug the pad while the hints show. | Hints hide. Plug back in: they stay hidden until a pad button or stick is used. |
+| N6 | Unplug the pad while the hints show. | **Accepted as is (2026-10-08):** hints follow the last device *used*, so unplugging or plugging in alone changes nothing; the next mouse/key input hides them and the next pad input shows them. |
 | N7 | Game start with only a pad, no mouse touched: first press on the main menu. | Hints appear on that first pad press (not before). |
 | N8 | Main menu / pause / shop / slot select: use the pad. | The **mouse cursor disappears** with the first pad input and the hints show. Only the pad-selected button is highlighted, even if the hidden cursor is resting on another button. |
 | N9 | From N8, nudge the mouse (and separately press a key). | Cursor reappears where it was, hints hide, hover highlights work again. |
@@ -458,7 +459,7 @@ loads; a scene with the same track keeps it playing. RoguelikeMode's
 | P10 | From the boss arena (or after Demo Complete), go back to the main menu. | "Empty" crossfades back in. |
 | P11 | Open the pause menu during a crossfade (e.g. right as a dungeon loads). | The fade still finishes while paused. |
 | P12 | Listen through P1–P10. | Crossfades are smooth: no clicks, no gap and no sudden volume jump. Each track loops without an audible seam. Music sits under the sound effects, not over them. |
-| P13 | Settings ▸ **Mute When Unfocused** on; Alt-Tab out (build, or click outside the Editor). | All sound mutes while unfocused and comes back on return. |
+| P13 | ~~Mute When Unfocused~~ | **Removed 2026-10-08:** the option is gone from Settings; sound always keeps playing when unfocused (the default). |
 
 ## Q. Sound effects (2026-10-08)
 
@@ -527,3 +528,19 @@ rooms; fodder spawns 4 at a time (cap 12 per spawner).
 | W1 | In one shop, buy 3 cigs, then burn 1. Continue. | The HUD pack row shows **2** cigs; the burned one shows only as a burning bar. |
 | W2 | Finish that dungeon. | The burning bar is gone; the pack row still shows 2. |
 | W3 | Burn a cig, Save & Exit in the shop, Continue the slot. | After loading, the burned cig still isn't in the pack row. |
+
+## Y. Fixes from Sarbo's playtest (2026-10-08)
+
+From the first full pass of `PlaytestChecklist-Sarbo.md`. Restyle tool:
+**Tools ▸ UI ▸ Restyle Dialogs + Demo Complete** (`DialogStyleBuilder`).
+
+| ID | Steps | Expected |
+|---|---|---|
+| Y1 | Open each confirm popup: slot **Delete** (main menu), pause ▸ **Main Menu** and pause ▸ **Give Up** (dungeon), and the shop's **brand conflict** (buy a Mild with a Regular held, or the reverse). | Each box has a thin white border. Its buttons look like the main menu's: bordered grey bar, black pixel-font capitals. Nothing overlaps or is cut off. |
+| Y2 | Same popups on the pad. | Focus still starts on the safe button (CANCEL / NO); Left/Right moves between the two; the focused one grows. B cancels. |
+| Y3 | Controls ▸ both tabs. Hover bindings with the mouse, then move through them with the pad; then start a rebind. | The focused binding turns **white with black text** (like the main menu buttons); the rest stay dark grey with white text. It stays white while it says "Press a key..." and goes back to normal after binding or cancelling. Greyed-out bindings never highlight. |
+| Y4 | Settings ▸ Audio. | No Mute When Unfocused row; the four sliders sit together with no gap. Pad up/down goes through them and on to the footer buttons. |
+| Y5 | Click outside the game window / Alt-Tab with music playing. | Sound keeps playing. |
+| Y6 | Kill the boss. | Demo Complete screen: **DEMO COMPLETE** title, the thanks + "please wishlist One Bit Kill on Steam" message, the run's kills/coins/dungeons, and a main-menu-style **MAIN MENU** button. Nothing overlaps. |
+| Y7 | Y6 on the pad only. | MAIN MENU is already selected (grown). Press the D-pad / stick in every direction first: focus stays on MAIN MENU (no softlock). A returns to the main menu. |
+| Y8 | Tutorial and boss arena: look at the HUD; in the boss arena have a burning cig and held cigs from the last shop, fire and reload. | Same layout as the dungeon HUD (cig pack row, burning bar, ammo count, coins/stomp). Ammo updates; the burning bar shows if one is burning. |

@@ -44,7 +44,6 @@ public static class AudioManager
         LookUpMixer();
 
         SettingsService.OnChanged += OnSettingsChanged;
-        Application.focusChanged += OnFocusChanged;
         SceneManager.sceneLoaded += OnSceneLoaded;
         Application.quitting += Shutdown;
     }
@@ -52,13 +51,11 @@ public static class AudioManager
     private static void Shutdown()
     {
         SettingsService.OnChanged -= OnSettingsChanged;
-        Application.focusChanged -= OnFocusChanged;
         SceneManager.sceneLoaded -= OnSceneLoaded;
         Application.quitting -= Shutdown;
     }
 
     private static void OnSettingsChanged(GameSettings settings) => ApplyVolumes();
-    private static void OnFocusChanged(bool focused) => ApplyVolumes();
 
     private static void LookUpMixer()
     {
@@ -108,8 +105,7 @@ public static class AudioManager
     private static void ApplyVolumes()
     {
         GameSettings s = SettingsService.Current;
-        bool muted = s.muteWhenUnfocused && !Application.isFocused;
-        float master = muted ? 0f : s.masterVolume;
+        float master = s.masterVolume;
 
         if (mixer == null)
         {

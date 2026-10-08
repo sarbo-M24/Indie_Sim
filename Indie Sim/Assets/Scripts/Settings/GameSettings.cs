@@ -18,7 +18,7 @@ public class GameSettings
     public float musicVolume = 0.8f;
     public float sfxVolume = 1f;
     public float uiVolume = 1f;
-    public bool muteWhenUnfocused = false;
+    public bool muteWhenUnfocused = false; // unused: option removed from Settings, kept so saved settings still load
 
     // ── Gameplay ──
     public bool damageNumbers = true;
